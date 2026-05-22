@@ -11,6 +11,7 @@ const app = express();
 app.use(express.text());
 const USERS_FILE = path.join(__dirname, 'users.json');
 const SECRET_KEY = 'ENTER YOUR KEY HERE';
+const PORT = 6767
 
 function readUsers() {
   try {
@@ -423,6 +424,6 @@ app.post('/hidden-secret/admin/userinfo', async (req, res) => {
 });
 
 
-app.listen(6767, () => {
-  console.log('AuroraHTTP running on port 6767');
+app.listen(PORT, () => {
+  console.log('AuroraHTTP running on port ${PORT}');
 });
