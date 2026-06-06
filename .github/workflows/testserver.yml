@@ -26,7 +26,7 @@ jobs:
       - name: Start app and check for crashes
         run: |
           # 1. Start the Node program in the background and save its Process ID (PID)
-          node server.js &
+          node index.js &
           NODE_PID=$!
           
           # 2. Wait for a few seconds to let it initialize/run
@@ -36,12 +36,23 @@ jobs:
           # 3. Check if the process is still running
           if kill -0 $NODE_PID 2>/dev/null; then
             echo "App is running smoothly! Sending SIGINT..."
-            # Send SIGINT (Ctrl+C) to the process
+            
+            # Send SIGINT to the process
             kill -2 $NODE_PID
             
-            # Wait for the process to actually exit
-            wait $NODE_PID
-            echo "App exited cleanly."
+            # Wait for the process to exit and capture its exit code
+            wait $NODE_PID && EXIT_CODE=$? || EXIT_CODE=$?
+            
+            echo "App exited with code $EXIT_CODE"
+            
+            # If it exited with 0 (clean exit) or 130 (successful SIGINT), we pass!
+            if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 130 ]; then
+              echo "Smoke test passed perfectly."
+              exit 0
+            else
+              echo "Error: App exited with an unexpected error code $EXIT_CODE"
+              exit 1
+            fi
           else
             echo "Error: The Node.js application crashed or exited early!"
             exit 1
