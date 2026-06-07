@@ -43,7 +43,17 @@ const rooms = [
   "bots",
   "lounge",
   "luigi chat",
+  "roleplay",
+  "testing channel",
 ];
+
+const HISTORY_LIMIT = 100; // Easily changeable if moments pass. Shattered glass? Hands of time. Where's that chime?!
+const chatHistory = {};
+
+// Initialize an empty history array for every single room
+rooms.forEach(room => {
+  chatHistory[room] = [];
+});
 
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
 const roomCount = rooms.length;
@@ -55,7 +65,9 @@ const socket_server = net.createServer((socket) => {
   const {ip, port} = socket.address;
   console.log(`[${socket.remoteAddress}] Client connected`);
   clients.push(socket);
-
+  chatHistory.forEach(item => {
+    socket.write(`${item.username}|${item.rawBody}|\n`);
+  });
   socket.on('data', (data) => {
     console.log(`${socket.remoteAddress} tried sending data (Murder him): ${data}`);
   });
@@ -81,7 +93,9 @@ const ws_server = new websocket.Server({ port: WEBSOCKET_PORT, clientTracking: t
 // WSS connection handling
 ws_server.on('connection', (ws, req) => {
   console.log(`[${req.socket.remoteAddress}] Client connected`);
-
+  chatHistory.forEach(item => {
+    ws.send(`${item.username}|${item.rawBody}|\n`);
+  });
   ws.on('message', (data) => {
     console.log(`${req.socket.remoteAddress} tried sending data (Murder him): ${data}`);
   });
@@ -181,21 +195,39 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
     if (user2.banned) {
       return res.status(200).send("ERR_BANNED");
     }
+    if (user2.muted) {
+      console.log(`Muted user ${req.user.username} tried to chat.`);
+      return res.status(200).send("ERR_MUTED");
+    }
   } else {
     return res.status(200).send("ERR_FAKE_USER");
   }
   console.log(`[${req.ip}] ${req.user.username}: ${req.body.split('|')[0]}`);
   console.log(`recieved:`,req.body);
+  const currentRoom = splittered[1];
+  const msgText = splittered[0];
+
+  if (chatHistory[currentRoom]) {
+    chatHistory[currentRoom].push({
+      username: req.user.username,
+      message: msgText
+    });
+
+    // drop the oldest message if we exceed it
+    if (chatHistory[currentRoom].length > HISTORY_LIMIT) {
+      chatHistory[currentRoom].shift();
+    }
+  }
+
   clients.forEach(client => {
     client.write(`${req.user.username}|${req.body}|\n`);
-    console.log("sent to ",client);console.log("data:",`${req.user.username}|${req.body}|\n`);
   });
   ws_server.clients.forEach(ws => {
     ws.send(`${req.user.username}|${req.body}|\n`);
-    console.log("sent to ", ws);console.log("data:",`${req.user.username}|${req.body}|\n`);
   });
   return res.status(200).send("OK");
 });
+
 
 /*
 Account Signup
