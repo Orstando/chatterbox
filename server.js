@@ -48,7 +48,7 @@ const rooms = [
 ];
 
 const HISTORY_LIMIT = 100; // Easily changeable if moments pass. Shattered glass? Hands of time. Where's that chime?!
-const chatHistory = {};
+const chatHistory = [];
 
 // Initialize an empty history array for every single room
 rooms.forEach(room => {
