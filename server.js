@@ -279,7 +279,7 @@ app.post('/api/signup', checkBan, async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = { id: Date.now().toString(), username, password: hashedPassword, admin: false, ip: req.ip, banned: false };
+  const newUser = { id: Date.now().toString(), username, password: hashedPassword, admin: false, ip: req.ip, banned: false, muted: false };
   users.users.push(newUser);
   writeUsers(users);
 
