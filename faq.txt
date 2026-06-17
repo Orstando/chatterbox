@@ -14,7 +14,7 @@ Q: Can I make my own theme?
 A: Themes are not currently implemented within v0.6.0.5 on 3DS, but will hopefully be there again soon.
 
 Q: Why did I get banned?
-A: We try and clearly communicate with users when they're breaking our rules. If we have repeatedly asked you to stop, you will be banned, and we DO NOT accept ban appeals on 3DS. Please join our Discord to make a ban appeal. Reentering chat to ask this question will result in a short response and another ban.
+A: We try and clearly communicate with users when they're breaking our rules. If we have repeatedly asked you to stop, you will be banned. Reentering chat to ask this question will result in a short response and another ban.
 
 Q: Are you going to add...
 A: We are currently planning to add DMs, Image & Voice Chat Support to AuroraChat. Our team is rather small so please be patient with us!
