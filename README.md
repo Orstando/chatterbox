@@ -17,8 +17,8 @@ cd aurorachat-server
 npm install express express-session bcryptjs jsonwebtoken
 
 # Setup server configuration
-[editor of your choice] config.js
-# The correct editor is Nano. 
+cp config.example.js config.js
+# Now would be a great time to edit config.js
 
 node server.js
 ```
