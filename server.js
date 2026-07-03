@@ -41,8 +41,6 @@ const rooms = [
   "general",
   "announcements",
   "bots",
-  "lounge",
-  "luigi chat",
   "roleplay",
   "testing channel",
 ];
@@ -836,6 +834,16 @@ app.post('/admin/userinfo', async (req, res) => {
     }
     </script>
     `);
+});
+app.post('/api/isadmin', async (req, res) => {
+  const {username} = req.body;
+  
+  const users = readUsers();
+  const user = users.users.find(user => user.username === username);
+  if (!user) {
+    return res.status(404).send("Invalid user yo");
+  }
+  res.status(200).send(`${user.admin}`)
 });
 
 app.get('/admin/userswithip', async (req, res) => {
