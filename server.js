@@ -814,8 +814,27 @@ app.post('/admin/userinfo', async (req, res) => {
   const user = users.users.find(user => user.username === username);
 
   return res.send(`
-    <p>Username: ${user.username}<br>Password Hash: ${user.password}<br>ID: ${user.id}<br>Banned: ${user.banned}<br>Ban Reason: ${user.banReason || "None"}<br>Muted: ${user.muted}<br>IP: ${user.ip}</p>
+    <p>Username: ${user.username}<br>Password Hash: ${user.password}<br>ID: ${user.id}<br>Banned: ${user.banned}<br>Ban Reason: ${user.banReason || "None"}<br>Muted: ${user.muted}<br>IP: <a href="#" onclick="return postName(this)">${user.ip}</a></p>
     <a href="/admin">Go back</a>
+    <script>
+    // are you gonna finish that croissant?
+    function postName(el) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/userswithip';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'ip';
+        input.value = '${user.ip}';
+
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+
+        return false;
+    }
+    </script>
     `);
 });
 
@@ -855,11 +874,32 @@ app.post('/admin/userswithip', async (req, res) => {
   
   const users = readUsers()["users"];
   const matches = users.filter(item => item.ip === ip).map(item => item.username);
-  const usernamesHtml = matches.map(username => `<p>${username}</p>`).join("\n");
+  const usernamesHtml = matches.map(username => `<a href="#" onclick="return postName(this)"><p>${username}</p></a>`).join("\n");
 
   return res.send(`
     ${usernamesHtml}
     <a href="/admin">Go back</a>
+    <script>
+    // NOTE: this is some bullshit i have to use to make the actual "clickable username" thing work. - 3pm
+    function postName(el) {
+        const username = el.textContent.trim();
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/userinfo';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'username';
+        input.value = username;
+
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+
+        return false;
+    }
+    </script>
     `);
 });
 
