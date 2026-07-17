@@ -11,7 +11,7 @@
     "url": "git+https://github.com/Unitendo/aurorachat-server.git"
   },
   "license": "POL",
-  "author": "Unitendo team",
+  "author": "Startendo team",
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
@@ -25,6 +25,7 @@
     "express-session": "^1.19.0",
     "jsonwebtoken": "^9.0.3",
     "ws": "^8.21.0"
+    "obscenity": "^0.4.6"
   },
   "nodemonConfig": {
     "ignore": "users.json"
