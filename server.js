@@ -329,7 +329,10 @@ app.post('/api/signup', checkBan, async (req, res) => {
     console.log("Signup: missing fields");
     return res.send("ERR_MISSING_INPUT");
   }
-
+  if (username.length > 30) {
+    console.log("Signup: Username too long");
+    return res.send("You know, this doesn't actually have to be all caps. I can write whatever I want in here.");
+  }
   const users = readUsers();
   if (users.users.find(user => user.username === username)) {
     console.log("Signup: account already in use");
