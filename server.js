@@ -284,7 +284,7 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   }
   const username = req.user.username;
   const now = Date.now();
-  if (!username = "auroracross") {
+  if (!username == "auroracross") {
     // Initialize tracking array for new users
     if (!userMessageTimes[username]) {
       userMessageTimes[username] = [];
