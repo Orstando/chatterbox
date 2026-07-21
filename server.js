@@ -13,7 +13,7 @@ const {
   TOKEN_SECRET, SESSION_SECRET,
   HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT
 } = config
-
+const userMessageTimes = {};
 const app = express(); // Create the actual server (the express one anyway)
 app.use(express.text()); // Make sure to accept raw text because JSON parsing in base C is hell
 app.use(cors({
@@ -282,6 +282,27 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   } else {
     return res.status(200).send("ERR_FAKE_USER");
   }
+  const username = req.user.username;
+  const now = Date.now();
+
+  // Initialize tracking array for new users
+  if (!userMessageTimes[username]) {
+    userMessageTimes[username] = [];
+  }
+  userMessageTimes[username] = userMessageTimes[username].filter(time => now - time < 2000);
+  if (userMessageTimes[username].length >= 5) {
+    console.log(`Murdered ${username} for spamming.`);
+    
+    // Mute the user in the database/file
+    user2.muted = true;
+    writeUsers(users2);
+
+    // Clear their message log
+    delete userMessageTimes[username];
+
+    return res.status(200).send("ERR_MUTED");
+  }
+  userMessageTimes[username].push(now);
   console.log(`[${req.ip}] ${req.user.username}: ${req.body.split('|')[0]}`);
   console.log(`recieved:`,req.body);
   const currentRoom = splittered[1];
