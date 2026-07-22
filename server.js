@@ -1,6 +1,5 @@
 const config = require('./config') // .env but shittier (tm)
 const express = require('express'); // express, used for webserver actions
-const net = require('net'); // net, used for socket functions
 const session = require('express-session'); // express-session, used for the admin panel
 const bcrypt = require('bcryptjs'); // BCrypt, used for hashing passwords
 const jwt = require('jsonwebtoken'); // JSON Web Token, used for authentication instead of manually using IPs (stupid behavior)

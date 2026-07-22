@@ -1,5 +1,4 @@
-<!-- Aurorachat Web Client -->
-<!-- v6 dev version, currently WIP -->
+<!-- Chatterbox Web Client -->
 
 <html>
   <head>
@@ -143,6 +142,7 @@
       .error-msg {
         color: red;
       }
+
       .dropdown {
         border: 2px solid #ccc;
         border-radius: 15px;
@@ -287,10 +287,68 @@
       .info-btn {
         margin-bottom: 5px;
       }
+      
+      /* toggle switch */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+      }
 
-      #page-options {
-        padding: 20% 0;
-        text-align: center;
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: .4s;
+        transition: .4s;
+        border-radius: 34px;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        -webkit-transition: .4s;
+        transition: .4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .slider {
+        background-color: #2196F3;
+      }
+
+      input:focus + .slider {
+        box-shadow: 0 0 1px #2196F3;
+      }
+
+      input:checked + .slider:before {
+        -webkit-transform: translateX(26px);
+        -ms-transform: translateX(26px);
+        transform: translateX(26px);
+      }
+
+      .darkmode {
+        display: flex;
+        align-items: center;
+        padding-left: 5px;
+      }
+      .darkmode span {
+        padding-left: 10px;
       }
 
       .hidden { /* should always stay at the bottom here */
@@ -398,7 +456,15 @@
 
     <!-- Options -->
     <div class="hidden" id="page-options">
-      The options page is currently unfinished, check back later
+      <br><h1 class="roboto-font inline-header">Aurorachat</h1>
+      <span class="roboto-font">Options</span><br><br>
+      <div class="darkmode">
+        <label class="switch">
+          <input type="checkbox">
+          <span class="slider round"></span>
+        </label>
+        <span class="roboto-font">Dark Mode</span>
+      </div>
     </div>
 
     <script src="connection.js"></script>
@@ -760,7 +826,7 @@
         currentRoom = [name, img];
         // hacky fix to keep messages at bottom on start
         document.getElementById("messages").replaceChildren();
-        const hackyFixDivs = new Array(30).fill(document.createElement("div")); // ah yes, "hackyFixDivs"
+        const hackyFixDivs = new Array(45).fill(document.createElement("div")); // ah yes, "hackyFixDivs"
         hackyFixDivs.forEach(hackyFixDiv => {
           hackyFixDiv.classList.add("message");
           hackyFixBr = document.createElement("br");
@@ -786,4 +852,3 @@
     </script>
   </body>
 </html>
-
