@@ -92,6 +92,7 @@
         padding-right: 10px;
         float: right;
         align-items: center;
+        color: rgba(255, 255, 255, 0.473);
       }
       .nav-roomStatus img {
         width: 16px;
@@ -101,6 +102,7 @@
       }
       .nav-roomStatus-desc {
         padding-right: 5px;
+        font-size: smaller;
       }
 
       /* Buttons */
@@ -392,7 +394,7 @@
         </a>
       </li>
       <!-- css "float:right;" makes this a bit confusing, sorry -->
-      <p class="nav-roomStatus"><p class="nav-roomStatus nav-roomStatus-desc">Currently in room:</p>
+      <p class="nav-roomStatus roboto-font"></p><p class="nav-roomStatus nav-roomStatus-desc roboto-font"></p>
     </ul>
     </div>
 
@@ -821,6 +823,7 @@
         imgEl.src = img
         document.getElementsByClassName("nav-roomStatus")[0].replaceChildren()
         document.getElementsByClassName("nav-roomStatus")[0].append(imgEl, "#"+name)
+        document.getElementsByClassName("nav-roomStatus-desc")[0].innerText = "Currently in room:"
       }
       function enterRoom(name, img) {
         setRoomStatus(name, img);
