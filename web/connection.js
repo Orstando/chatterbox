@@ -1,10 +1,10 @@
 class Client {
-  constructor(useragent, url, port, is_secure) {
+  constructor(useragent, url, is_secure) {
     this.ua = useragent || "ChB-WebLib";
     var http_prefix = is_secure ? "https://" : "http://"
     var ws_prefix = is_secure ? "wss://" : "ws://"
-    this.url = url ? http_prefix+url+':'+port : ''; // if url is empty, use current server ip/port (as in, the server that this web client is on)
-    this.ws = new WebSocket(ws_prefix+url+':'+port);
+    this.url = url ? http_prefix+url : ''; // if url is empty, use current server ip/port (as in, the server that this web client is on)
+    this.ws = new WebSocket(ws_prefix+url);
     this.ws.onopen = function() {
       console.log('Connected via WebSocket');
     }

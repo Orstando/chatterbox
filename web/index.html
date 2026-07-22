@@ -471,8 +471,7 @@
     <script>
       const EXPIRY_DATE_MS = 3600000; // expiry date for login token (1 hour)
       // server info
-      const url = "127.0.0.1";
-      const port = 3033;
+      const url = "127.0.0.1:3033";
       const is_secure = false;
 
       function isNavEnabled(button) {
@@ -699,7 +698,7 @@
         }
       });
       
-      var client = new Client("ChB-WebClient", url, port, is_secure);
+      var client = new Client("ChB-WebClient", url, is_secure);
 
       client.onMessage = function(data) {
         console.log("recieved",data)
