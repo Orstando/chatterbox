@@ -183,7 +183,7 @@ app.post('/api/signup', checkBan, async (req, res) => {
 
   const token = jwt.sign({ id: newUser.id, username }, TOKEN_SECRET, { expiresIn: '1h' });
   console.log("Account created!");
-  return res.status(200).send(`${token}`);
+  return res.status(200).send({"token": token});
 });
 
 // {"username": "orstando", "password": "wowsopassword"}
