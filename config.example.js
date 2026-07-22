@@ -9,3 +9,6 @@ exports.ROOMS = [
     "roleplay",
     "testing channel"
 ]
+exports.USERNAME_LIMIT = 30
+exports.HISTORY_LIMIT = 100
+exports.MESSAGE_LIMIT = 1000

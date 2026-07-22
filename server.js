@@ -10,19 +10,18 @@ const fs = require('fs');
 const censor = require('./censor');
 const admin = require("./admin");
 const { readUsers, writeUsers } = require("./db")
-const { TOKEN_SECRET, SESSION_SECRET, HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT, ROOMS } = require('./config');
+const { TOKEN_SECRET, SESSION_SECRET, HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT } = require('./config');
 
 const userMessageTimes = {};
 const userRecentMessages = {};
 const app = express(); // Create the http server
-app.use(express.text()); // Make sure to accept raw text because JSON parsing in base C is hell
+app.use(express.json());
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent']
 }));
 
-const HISTORY_LIMIT = 100; // Easily changeable if moments pass. Shattered glass? Hands of time. Where's that chime?!
 /**
  * @type { Object.<string,{ username: string, message: string }[]> }
  */
@@ -117,105 +116,84 @@ app.post('/api/rooms', checkBan, (req, res) => {
   console.log("Sent room list");
 });
 
-/*
-Send a message
-
-Formatting:
-message|room|
-
-Make CERTAIN it ends with a |, otherwise it'll get messy sometimes.
-*/
+// {"room": "general", "content": "test"}
 app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
-  const splittered = req.body.split("|");
-  if (!splittered[1] || !splittered[0]) {
-    return res.status(200).send("ERR_MISSING_FIELD");
+  var data = req.body
+  if (!ROOMS.includes(data.room)) {
+    return res.status(200).send({"error": "Room not found"});
   }
-  if (!ROOMS.includes(splittered[1])) {
-    return res.status(200).send("ERR_FAKE_ROOM_YOU_MORON");
-  }
-  if (splittered[1] == "announcements") {
+  const users = readUsers();
+  if (data.room == "announcements") {
     console.log("Message in announcements:");
-    const users = readUsers();
     const user = users.users.find(user => user.username === req.user.username);
     if (user) {
-      if (user.admin == false) {
+      if (!user.admin) {
         console.log("Not enough rights");
-        return res.send("ERR_NO_RIGHTS");
+        return res.send({"error": "No permission"});
       }
     }
   }
-  const users2 = readUsers();
-  const user2 = users2.users.find(user => user.username === req.user.username);
+  const user2 = users.users.find(user => user.username === req.user.username);
   if (user2) {
     if (user2.banned) {
       const reason = user2.banReason || "No reason specified";
-      return res.status(200).send(`ERR_BANNED|${reason}|`);
+      return res.status(200).send({"error": "Banned", "reason": reason});
     }
     if (user2.muted) {
       console.log(`Muted user ${req.user.username} tried to chat.`);
-      return res.status(200).send("ERR_MUTED");
+      return res.status(200).send({"error": "Muted"});
     }
   } else {
-    return res.status(200).send("ERR_FAKE_USER");
+    return res.status(404).send({"error": "User not found"});
   }
-  const username = req.user.username;
-  const now = Date.now();
-  const currentMsg = req.body.split('|')[0];
-  
-  console.log(`[${req.ip}] ${req.user.username}: ${req.body.split('|')[0]}`);
-  console.log(`recieved:`,req.body);
-  const currentRoom = splittered[1];
-  const msgText = splittered[0];
+  if (data.content.length > MESSAGE_LIMIT) {
+    return res.status(200).send({"error": "Message too long", "limit": MESSAGE_LIMIT});
+  }
+  console.log(`[${req.ip}] ${req.user.username}: ${req.body}`);
 
-  if (chatHistory[currentRoom]) {
-    chatHistory[currentRoom].push({
+  var censored = censor(data.content)
+  var result = {"author": req.user.username, "content": censored}
+
+  if (chatHistory[data.room]) {
+    chatHistory[data.room].push({
       username: req.user.username,
-      message: msgText
+      message: censored
     });
 
     // drop the oldest message if we exceed it
-    if (chatHistory[currentRoom].length > HISTORY_LIMIT) {
-      chatHistory[currentRoom].splice(0, chatHistory[currentRoom].length - HISTORY_LIMIT)
+    if (chatHistory[data.room].length > HISTORY_LIMIT) {
+      chatHistory[data.room].splice(0, chatHistory[data.room].length - HISTORY_LIMIT)
     }
   }
-  var censored = censor(req.body)
-  var line = `${req.user.username}|${censored}|\n`
 
   clients.forEach(client => {
-    client.write(line);
+    client.write(result);
   });
   ws_server.clients.forEach(ws => {
-    ws.send(line);
+    ws.send(result);
   });
-  return res.status(200).send("OK");
+  return res.status(200).send({"result": "Success"});
 });
 
 
-/*
-Account Signup
-
-Formatting:
-username|password|
-
-
-*/
+// {"username": "orstando", "password": "wowsopassword"}
 app.post('/api/signup', checkBan, async (req, res) => {
-  const splitten = req.body.split("|");
-  const username = splitten[0];
-  const password = splitten[1];
+  const data = req.body
+  const username = data.username;
+  const password = data.password;
 
   if (!username || !password) {
     console.log("Signup: missing fields");
-    return res.send("ERR_MISSING_INPUT");
+    return res.send({"error": "Missing fields"});
   }
-  if (username.length > 30) {
+  if (username.length > USERNAME_LIMIT) {
     console.log("Signup: Username too long");
-    return res.send("You know, this doesn't actually have to be all caps. I can write whatever I want in here.");
+    return res.send({"error": "Username too long", "limit": USERNAME_LIMIT});
   }
   const users = readUsers();
   if (users.users.find(user => user.username === username)) {
     console.log("Signup: account already in use");
-    return res.send("ERR_USER_USED");
+    return res.send({"error": "Username unavailable"});
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -228,37 +206,27 @@ app.post('/api/signup', checkBan, async (req, res) => {
   return res.status(200).send(`${token}`);
 });
 
-/*
-Account Login
-
-Formatting:
-username|password|
-
-*/
+// {"username": "orstando", "password": "wowsopassword"}
 app.post('/api/login', checkBan, async (req, res) => {
-  const splitten = req.body.split("|");
-  const username = splitten[0];
-  const password = splitten[1];
+  const data = req.body
+  const username = data.username;
+  const password = data.password;
 
   const users = readUsers();
   const user = users.users.find(user => user.username === username);
   if (!user || !(await bcrypt.compare(password, user.password))) {
     console.log("Wrong password");
-    return res.send("ERR_WRONG_PASS");
+    return res.send({"error": "Incorrect username or password"});
   }
 
-  if (user) {
-    if (user.banned) {
-      const reason = user.banReason || "No reason specified";
-      return res.status(200).send(`ERR_BANNED|${reason}|\n`);
-    }
-  } else {
-    return res.status(200).send("ERR_FAKE_USER");
+  if (user.banned) {
+    const reason = user.banReason || "No reason specified";
+    return res.status(200).send({"error": "Banned", "reason": reason});
   }
 
   const token = jwt.sign({ id: user.id, username }, TOKEN_SECRET, { expiresIn: '1h' });
   console.log("Client logged in!");
-  return res.status(200).send(`${token}|\n`);
+  return res.status(200).send({"token": token});
 });
 
 app.use(express.urlencoded({ extended: true }));
@@ -307,7 +275,7 @@ app.get('/api/changelog', async (req, res) => {
 app.post('/api/online', async (req, res) => {
   room = req.body;
   // get online count for room, currently placeholder
-  res.status(200).send("?")
+  res.status(200).send({"count": 1})
 })
 
 app.post('/api/isadmin', async (req, res) => {
@@ -318,10 +286,10 @@ app.post('/api/isadmin', async (req, res) => {
   if (!user) {
     return res.status(404).send("Invalid user.");
   }
-  res.status(200).send(`${user.admin}`)
+  res.status(200).send({"result": user.admin})
 });
 
-// {"room": "#general"}
+// {"room": "general"}
 app.post('/api/history', verifyToken, checkBan, async (req, res) => {
   const data = req.body;
   let messages = []
