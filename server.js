@@ -1,4 +1,3 @@
-const config = require('./config') // .env but shittier (tm)
 const express = require('express'); // express, used for webserver actions
 const session = require('express-session'); // express-session, used for the admin panel
 const bcrypt = require('bcryptjs'); // BCrypt, used for hashing passwords
@@ -7,11 +6,14 @@ const path = require('path'); // Wait, what?
 const fs = require('fs'); // Filesystem actions
 const websocket = require('ws'); // WebSocket server, for the web client
 const cors = require('cors');
-const { RegExpMatcher, TextCensor, englishDataset, englishRecommendedTransformers } = require('obscenity'); // Please read the channel description.
+
+const { censor } = require('./censor')
+const config = require('./config') // .env but shittier (tm)
 const {
   TOKEN_SECRET, SESSION_SECRET,
   HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT
 } = config
+
 const userMessageTimes = {};
 const userRecentMessages = {};
 const app = express(); // Create the actual server (the express one anyway)
@@ -241,10 +243,8 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
       chatHistory[currentRoom].splice(0, chatHistory[currentRoom].length - HISTORY_LIMIT)
     }
   }
-  const matcher = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
-  const censor = new TextCensor();
-  const matches = matcher.getAllMatches(`${req.user.username}|${req.body}|\n`);
-  const line = censor.applyTo(`${req.user.username}|${req.body}|\n`, matches);
+  var censored = censor(req.body)
+  var line = `${req.user.username}|${censored}|\n`
   // Cache the last few messages so we can replay them to clients on connect
   recentMessages.push(line);
   if (recentMessages.length > RECENT_LIMIT) {
