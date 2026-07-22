@@ -7,9 +7,9 @@ const jwt = require('jsonwebtoken'); // JSON Web Token, used for authentication 
 const path = require('path'); // Wait, what?
 const fs = require('fs'); // Filesystem actions
 const websocket = require('ws'); // WebSocket server, for the web client
-const cors = require('cors'); //Kill all CORS users.
+const cors = require('cors');
 const { RegExpMatcher, TextCensor, englishDataset, englishRecommendedTransformers } = require('obscenity'); // Please read the channel description.
-const { 
+const {
   TOKEN_SECRET, SESSION_SECRET,
   HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT
 } = config
@@ -20,9 +20,9 @@ app.use(express.text()); // Make sure to accept raw text because JSON parsing in
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'auth'] // Make sure your custom 'auth' header is whitelisted!
+  allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent']
 }));
-const USERS_FILE = path.join(__dirname, 'users.json');
+const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 
 // Read the users file
 function readUsers() {
@@ -67,67 +67,6 @@ const roomCount = rooms.length;
 
 // Client storage, keeps track of all sockets.
 const clients = [];
-
-const socket_server = net.createServer((socket) => {
-  const {ip, port} = socket.address;
-  console.log(`[${socket.remoteAddress}] Client connected`);
-  clients.push(socket);
-
-  // Replay recent messages so there's some permanence across reconnects
-  for(const line of recentMessages) {
-    socket.write(line);
-  }
-
-  socket.on('data', (data) => {
-    const msg = data.toString('utf-8').trim()
-    const parts = msg.split('|')
-
-    if(parts[0] === 'history') {
-      let limit = parts[1] ? parseInt(parts[1]) : 0
-      const room = parts[2]
-      if(limit == NaN) limit = 0
-      if(limit < 0) limit = 0
-      let message = ''
-      if(room) {
-        const history = chatHistory[room]
-        if(history) 
-          for(const msg of history) {
-            message += `${msg.username}|${msg.message}|${room}|\n`
-          }
-        else {
-          console.log(`${socket.remoteAddress} requested message history for nonexistent room (${room})`)
-          return
-        }
-      } else for(const room in chatHistory) {
-        const history = chatHistory[room]
-        for(const msg of history) {
-          message += `${msg.username}|${msg.message}|${room}|\n`
-        }
-      }
-      if(limit && message.length > limit) {
-        message = message.substring(message.length - limit, message.length)
-      }
-      socket.write(message)
-      console.log(`${socket.remoteAddress} requested message history`)
-      return
-    }
-
-    console.log(`${socket.remoteAddress} tried sending data (Murder him): ${data}`);
-  });
-
-  socket.on('end', () => {
-    console.log(`[${socket.remoteAddress}] Client disconnected`);
-  });
-
-  socket.on('error', (err) => {
-    console.error(`[${socket.remoteAddress}] error: ${err.message}`);
-  });
-});
-
-// Start up the TCP server
-socket_server.listen(SOCKET_PORT, () => {
-  console.log(`AuroraTCP listening on port ${SOCKET_PORT}`);
-});
 
 // Websocket server
 const ws_server = new websocket.Server({ port: WEBSOCKET_PORT, clientTracking: true }, () => {
@@ -228,7 +167,7 @@ function checkBan(req, res, next) {
 app.use('/web', express.static('web'));
 
 // Unused, simple API test
-app.post('/api/test', checkBan, (req, res) => {
+app.get('/api/test', checkBan, (req, res) => {
   res.set('Content-Type', 'text/plain');
   res.status(200).send('Online');
   console.log("Client requested API status");
@@ -286,56 +225,6 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   const username = req.user.username;
   const now = Date.now();
   const currentMsg = req.body.split('|')[0];
-  if (!username == "auroracross") {
-    // Initialize tracking array for new users
-    if (!userMessageTimes[username]) {
-      userMessageTimes[username] = [];
-    }
-    userMessageTimes[username] = userMessageTimes[username].filter(time => now - time < 2000);
-    if (userMessageTimes[username].length >= 5) {
-      console.log(`Murdered ${username} for spamming.`);
-    
-      // Mute the user in the database/file
-      user2.muted = true;
-      writeUsers(users2);
-
-      // Clear their message log
-      delete userMessageTimes[username];
-
-      return res.status(200).send("ERR_MUTED");
-    }
-    userMessageTimes[username].push(now);
-    if (!userRecentMessages[username]) {
-      userRecentMessages[username] = [];
-    }
-
-    // Push the incoming message text
-    userRecentMessages[username].push(currentMsg);
-
-    // Keep only the last 5 messages in memory for this user
-    if (userRecentMessages[username].length > 5) {
-      userRecentMessages[username].shift();
-    }
-
-    // Check if all 5 entries in the buffer are identical
-    const isDuplicateSpam = 
-      userRecentMessages[username].length === 5 && 
-      userRecentMessages[username].every(msg => msg === currentMsg);
-
-    if (isDuplicateSpam) {
-      console.log(`Murdered ${username} for spamming. (Beta Mix)`);
-    
-      // Mute the user
-      user2.muted = true;
-      writeUsers(users2);
-
-      // Clear tracking memory for this user
-      delete userRecentMessages[username];
-      if (userMessageTimes[username]) delete userMessageTimes[username];
-
-      return res.status(200).send("ERR_MUTED");
-    }
-  }
   
   console.log(`[${req.ip}] ${req.user.username}: ${req.body.split('|')[0]}`);
   console.log(`recieved:`,req.body);
@@ -451,35 +340,36 @@ app.use(session({
     saveUninitialized: false,
     cookie: { secure: false }
 }));
+
 app.get('/api/rules', async (req, res) => {
-  const filePath = path.join(__dirname, 'rules.txt');
+  const filePath = path.join(__dirname, 'data', 'rules.txt');
   res.sendFile(filePath, (err) => {
       if (err) {
           console.error(err);
           if (!res.headersSent) {
-              res.status(404).send('* If you are reading this,&  I messed up somehow./%');
+              res.status(404).send('An error occurred while fetching rules.');
           }
       }
   });
 });
 app.get('/api/faq', async (req, res) => {
-  const filePath = path.join(__dirname, 'faq.txt');
+  const filePath = path.join(__dirname, 'data', 'faq.txt');
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error(err);
       if (!res.headersSent) {
-        res.status(404).send('* If you are reading this,&  I messed up somehow./%');
+        res.status(404).send('An error occurred while fetching FAQ.');
       }
     }
   });
 });
 app.get('/api/changelog', async (req, res) => {
-  const filePath = path.join(__dirname, 'changelog.txt');
+  const filePath = path.join(__dirname, 'data', 'changelog.txt');
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error(err);
       if (!res.headersSent) {
-        res.status(404).send('* If you are reading this,&  I messed up somehow./%');
+        res.status(404).send('An error occurred while fetching changelog.');
       }
     }
   });
@@ -506,11 +396,11 @@ app.post('/admin/login', async (req, res) => {
   const user = users.admins.find(user => user.username === username);
   if (!user || !(await bcrypt.compare(password, user.password))) {
     console.log("Wrong password");
-    return res.status(403).send(`<p><a href="https://www.youtube.com/watch?v=dWX8Kafsc3c">Wrong password.</a></p><a href='/admin/login'>Go back</a>`);
+    return res.status(403).send(`<p>Wrong password.</p><a href='/admin/login'>Go back</a>`);
   }
 
   if (!user) {
-    return res.status(403).send(`<p><a href="https://www.youtube.com/watch?v=dWX8Kafsc3c">Wrong password.</a></p><a href='/admin/login'>Go back</a>`);
+    return res.status(403).send(`<p>Wrong password.</p><a href='/admin/login'>Go back</a>`);
   }
 
   req.session.admin = true;
@@ -579,8 +469,8 @@ app.get('/admin/ban', async (req, res) => {
       <body>
       <h1>Ban User</h1>
       <form method="POST">
-        <input name="username" placeholder="Username to ban" required /><br><br>
-        <input name="reason" placeholder="Reason for ban" style="width: 300px;" /><br><br>
+        <input name="username" placeholder="Username" required /><br><br>
+        <input name="reason" placeholder="Reason" style="width: 300px;" /><br><br>
         <button type="submit">Ban</button>
     </form>
     </body>
@@ -674,8 +564,8 @@ app.get('/admin/delete', async (req, res) => {
       <body>
       <h1 style='color: red;'>Delete User</h1>
       <form method="POST">
-        <input name="username" placeholder="Username to murder in real life" /><br>
-        <button type="submit">Send hitmen</button>
+        <input name="username" placeholder="Username" /><br>
+        <button type="submit">Delete</button>
     </form>
     </body>
     </html>
@@ -716,7 +606,7 @@ app.get('/admin/mute', async (req, res) => {
       <body>
       <h1 style='color: red;'>Mute User</h1>
       <form method="POST">
-        <input name="username" placeholder="Username to mute" /><br>
+        <input name="username" placeholder="Username" /><br>
         <button type="submit">Mute user</button>
     </form>
     </body>
@@ -736,12 +626,16 @@ app.post('/admin/mute', async (req, res) => {
   if (user) {
     user.muted = true;
     writeUsers(users);
+    return res.send(`
+      <p>User muted successfully.</p>
+      <a href="/admin">Go back</a>
+    `);
   }
 
   return res.send(`
-    <p>User Where... Where am I? Hello...? Anyone...? Is... is anybody out there...? Someone!? Anyone!? Can anyone hear me!? ... It's dark. It's so dark here. Someone, anyone, if you can hear me... Say something... please...</p>
+    <p>User not found.</p>
     <a href="/admin">Go back</a>
-    `);
+  `);
 });
 app.get('/admin/unmute', async (req, res) => {
   if (!req.session.admin) {
@@ -763,7 +657,7 @@ app.get('/admin/unmute', async (req, res) => {
       <body>
       <h1 style='color: green;'>Unmute User</h1>
       <form method="POST">
-        <input name="username" placeholder="Username to unmute" /><br>
+        <input name="username" placeholder="Username" /><br>
         <button type="submit">Unmute user</button>
     </form>
     </body>
@@ -788,7 +682,7 @@ app.post('/admin/unmute', async (req, res) => {
   return res.send(`
     <p>User unmuted!</p>
     <a href="/admin">Go back</a>
-    `);
+  `);
 });
 
 app.get('/admin/createAccount', async (req, res) => {
@@ -843,7 +737,7 @@ app.post('/admin/createAccount', async (req, res) => {
       return res.send(`
         <p>You need to at least include a password or a password hash.</p>
         <a href="/admin">Go back</a>
-        `);
+      `);
   }
   
   const newUser = { id: Date.now().toString(), username, password: hashedPassword, admin: false, ip: req.ip, banned: false, banReason: "", muted: false };
@@ -853,7 +747,7 @@ app.post('/admin/createAccount', async (req, res) => {
   return res.send(`
     <p>User created!</p>
     <a href="/admin">Go back</a>
-    `);
+  `);
 });
 
 app.get('/admin/userinfo', async (req, res) => {
@@ -897,8 +791,7 @@ app.post('/admin/userinfo', async (req, res) => {
     <p>Username: ${user.username}<br>Password Hash: ${user.password}<br>ID: ${user.id}<br>Banned: ${user.banned}<br>Ban Reason: ${user.banReason || "None"}<br>Muted: ${user.muted}<br>IP: <a href="#" onclick="return postName(this)">${user.ip}</a></p>
     <a href="/admin">Go back</a>
     <script>
-    // are you gonna finish that croissant?
-    function postName(el) {
+      function postName(el) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/admin/userswithip';
@@ -913,7 +806,7 @@ app.post('/admin/userinfo', async (req, res) => {
         form.submit();
 
         return false;
-    }
+      }
     </script>
     `);
 });
@@ -923,7 +816,7 @@ app.post('/api/isadmin', async (req, res) => {
   const users = readUsers();
   const user = users.users.find(user => user.username === username);
   if (!user) {
-    return res.status(404).send("Invalid user yo");
+    return res.status(404).send("Invalid user.");
   }
   res.status(200).send(`${user.admin}`)
 });
@@ -949,7 +842,7 @@ app.get('/admin/userswithip', async (req, res) => {
       <h1 style='color: green;'>Check Users with IP</h1>
       <form method="POST">
         <input name="ip" placeholder="IP" required /><br>
-        <button type="submit">Grab Users</button>
+        <button type="submit">Submit</button>
     </form>
     </body>
     </html>
@@ -970,7 +863,6 @@ app.post('/admin/userswithip', async (req, res) => {
     ${usernamesHtml}
     <a href="/admin">Go back</a>
     <script>
-    // NOTE: this is some bullshit i have to use to make the actual "clickable username" thing work. - 3pm
     function postName(el) {
         const username = el.textContent.trim();
 
@@ -1014,7 +906,7 @@ app.get('/admin/changebanreason', async (req, res) => {
       <h1 style='color: green;'>Change User Ban Reason</h1>
       <form method="POST">
         <input name="username" placeholder="Username" required /><br>
-        <input name="reason" placeholder="New Ban Reason" required /><br>
+        <input name="reason" placeholder="Reason" required /><br>
         <button type="submit">Change Ban Reason</button>
     </form>
     </body>

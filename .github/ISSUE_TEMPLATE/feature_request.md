@@ -1,10 +1,9 @@
 ---
 name: Feature request
 about: Ask us to add a feature to aurorachat
-title: Not applicable.
+title: Feature Request
 labels: enhancement
-assignees: VirtuallyExisting, cool-guy-awesome
-
+assignees: Orstando
 ---
 
 **Describe the feature**

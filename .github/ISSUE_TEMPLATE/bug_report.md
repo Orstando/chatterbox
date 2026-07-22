@@ -1,10 +1,9 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: Not applicable. But...
+title: Bug Report
 labels: bug
-assignees: VirtuallyExisting, cool-guy-awesome
-
+assignees: Orstando
 ---
 
 **Describe the bug**
@@ -24,8 +23,8 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Version information (please complete the following information):**
- - OS: [e.g. 11.17.0-50U]
-- Version [e.g. v0.6.7]
+ - OS: [e.g. Windows 11]
+ - Version [e.g. v1.5.3]
 
 **Additional context**
 Add any other context about the problem here.
