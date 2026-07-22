@@ -139,6 +139,9 @@ function checkBan(req, res, next) {
 
 // web version
 app.use('/web', express.static('web'));
+app.get('/', checkBan, (req, res) => {
+  return res.redirect("/web");
+})
 
 // Unused, simple API test
 app.get('/api/test', checkBan, (req, res) => {
