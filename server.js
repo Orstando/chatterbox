@@ -10,7 +10,7 @@ const fs = require('fs');
 const censor = require('./censor');
 const admin = require("./admin");
 const { readUsers, writeUsers } = require("./db")
-const { TOKEN_SECRET, SESSION_SECRET, HTTP_PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT } = require('./config');
+const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT } = require('./config');
 
 const userMessageTimes = {};
 const userRecentMessages = {};
