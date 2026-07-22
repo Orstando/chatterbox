@@ -471,9 +471,11 @@
     <script>
       const EXPIRY_DATE_MS = 3600000; // expiry date for login token (1 hour)
       // server info
-      const url = "127.0.0.1";
+      const http_url = "127.0.0.1";
+      const ws_url = "127.0.0.1"
       const http_port = 3033;
-      const wss_port = 3034;
+      const ws_port = 3034;
+      const is_secure = false;
       
       function isNavEnabled(button) {
         console.log("Checking navbar enabled state for: ", button);
@@ -699,7 +701,7 @@
         }
       });
       
-      var client = new Client("AuC-WebClient", url, http_port, wss_port);
+      var client = new Client("AuC-WebClient", http_url, http_port, ws_url, ws_port, is_secure);
 
       client.onMessage = function(data) {
         console.log("recieved",data)
