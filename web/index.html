@@ -702,8 +702,9 @@
       var client = new Client("AuC-WebClient", url, http_port, wss_port);
 
       client.onMessage = function(data) {
+        console.log("recieved",data)
         if (data.room == currentRoom[0]) {
-          appendMsg(data.pfp, data.username, data.message, data.platform, data.image);
+          appendMsg(data.pfp, data.author, data.content, data.platform, data.image);
         };
       }
       client.onError = function(error) {
@@ -757,9 +758,9 @@
         }
         data = await client.login(username, password);
         console.log(data)
-        switch(data) {
-          case "ERR_BANNED":
-            showErr("signin", "Error: You are banned.");
+        switch(data.error) {
+          case "Banned":
+            showErr("signin", "Error: You are banned.\nReason: "+data.reason);
             return;
           case "ERR_INVALID_TOKEN":
             showErr("signin", "Error: Token invalid, please reload the page.");
@@ -767,12 +768,13 @@
           case "ERR_WHAT_THE_HECK":
             showErr("signin", "An unknown error occurred.");
             return;
-          case "ERR_WRONG_PASS":
-            showErr("signin", "Error: Incorrect password.");
+          case "Incorrect username or password":
+            showErr("signin", "Error: Incorrect username or password.");
             return;
         }
-        handleToken(data.split("|")[0]);
+        handleToken(data.token);
         toggleNav("all"); // enable nav
+        getRooms();
         gotoPage("chat");
       }
       
@@ -786,7 +788,7 @@
           return;
         }
         data = await client.signup(username, password)
-        switch(data) {
+        switch(data.error) {
           case "ERR_BANNED":
             showErr("signup", "Error: You are banned.");
             return;
@@ -803,7 +805,7 @@
             showErr("signup", "Error: Account already in use.");
             return;
         }
-        handleToken(data.split("|")[0]);
+        handleToken(data.token);
         toggleNav("all"); // enable nav
         gotoPage("chat");
       }
@@ -836,7 +838,7 @@
       }
       async function getRooms() {
         data = await client.rooms(token);
-        data["rooms"].forEach(async (item) => {
+        data.forEach(async (item) => {
           online = await client.online(token, item[0]);
           appendRoom("https://placehold.co/64?text="+item[0], item, online)
         })
@@ -845,9 +847,10 @@
       if (!handleToken()) { // disable nav if not signed in
         toggleNav("all");
       } else {
+        getRooms();
         gotoPage("chat");
       }
-      getRooms();
+      
       enterRoom("general", "https://placehold.co/64?text=g")
     </script>
   </body>

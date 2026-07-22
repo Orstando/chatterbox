@@ -35,11 +35,8 @@ for(const room of ROOMS) {
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
 const roomCount = ROOMS.length;
 
-// Client storage, keeps track of all sockets.
-const clients = [];
-
 // Websocket server
-const ws_server = new websocket.Server({ port: WEBSOCKET_PORT, clientTracking: true }, () => {
+const ws_server = new websocket.Server({ port: WEBSOCKET_PORT, host: "0.0.0.0", clientTracking: true }, () => {
   console.log(`ChatterWSS listening on port ${WEBSOCKET_PORT}`);
 });
 // WSS connection handling
@@ -61,11 +58,12 @@ ws_server.on('connection', (ws, req) => {
 
 // Verify the JWT token provided by the client
 function verifyToken(req, res, next) {
-  const token = req.headers['auth'];
+  const token = req.headers.authorization;
 
   if (!token) {
     console.log(`[${req.ip}]: Error: Invalid Token.`);
-    return res.send("ERR_INVALID_TOKEN");
+    console.log(token)
+    return res.send({"error": "Invalid token"});
   }
 
   try {
@@ -73,8 +71,8 @@ function verifyToken(req, res, next) {
     req.user = decoded;
     next();
   } catch (err) {
-    console.log(`AHHHH OH HELP OH MY GOODNESS AHHHH ${err}`);
-    return res.send("ERR_WHAT_THE_HECK");
+    console.log(`Token error: ${err}`);
+    return res.send({"error": "Token verification error"});
   }
 }
 
@@ -86,7 +84,7 @@ function checkBan(req, res, next) {
     if (user.banned == true) {
       console.log(`Banned user attempted access: ${user.username}`);
       const reason = user.banReason || "No reason specified";
-      return res.send(`ERR_BANNED|${reason}|`);
+      return res.send({"error": "Banned", "reason": reason});
     } else {
       next();
     }
@@ -103,20 +101,19 @@ app.get('/', checkBan, (req, res) => {
 
 // Unused, simple API test
 app.get('/api/test', checkBan, (req, res) => {
-  res.set('Content-Type', 'text/plain');
-  res.status(200).send('Online');
-  console.log("Client requested API status");
+  res.set('Content-Type', 'application/json');
+  res.status(200).send({"result": "Online"});
+  console.log(`${req.ip} requested API status`);
 });
 
 // Grab rooms
-app.post('/api/rooms', checkBan, (req, res) => {
-  res.set('Content-Type', 'text/plain');
-  const responseString = `${roomCount}|${ROOMS.join('|')}|`;
-  res.status(200).send(responseString);
+app.get('/api/rooms', verifyToken, checkBan, (req, res) => {
+  res.set('Content-Type', 'application/json');
+  res.status(200).send(ROOMS);
   console.log("Sent room list");
 });
 
-// {"room": "general", "content": "test"}
+// {"room": "general", "content": "test", "platform": "Web", "img": "[image url]"}
 app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   var data = req.body
   if (!ROOMS.includes(data.room)) {
@@ -149,10 +146,16 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   if (data.content.length > MESSAGE_LIMIT) {
     return res.status(200).send({"error": "Message too long", "limit": MESSAGE_LIMIT});
   }
-  console.log(`[${req.ip}] ${req.user.username}: ${req.body}`);
+  console.log(`[${req.ip}] ${req.user.username}: ${JSON.stringify(req.body)}`);
 
   var censored = censor(data.content)
-  var result = {"author": req.user.username, "content": censored}
+  var result = {
+    "author": req.user.username,
+    "content": censored,
+    "room": data.room,
+    "pfp": "img/pfp.png", // placeholder
+    "platform": "img/plt/web.png" // placeholder
+  }
 
   if (chatHistory[data.room]) {
     chatHistory[data.room].push({
@@ -166,11 +169,9 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
     }
   }
 
-  clients.forEach(client => {
-    client.write(result);
-  });
-  ws_server.clients.forEach(ws => {
-    ws.send(result);
+  console.log("sent",JSON.stringify(result))
+  ws_server.clients.forEach(client => {
+    client.send(JSON.stringify(result));
   });
   return res.status(200).send({"result": "Success"});
 });
@@ -238,6 +239,7 @@ app.use(session({
     cookie: { secure: false }
 }));
 
+app.use(express.text());
 app.get('/api/rules', async (req, res) => {
   const filePath = path.join(__dirname, 'data', 'rules.txt');
   res.sendFile(filePath, (err) => {
@@ -271,6 +273,8 @@ app.get('/api/changelog', async (req, res) => {
     }
   });
 });
+
+app.use(express.json());
 
 app.post('/api/online', async (req, res) => {
   room = req.body;
