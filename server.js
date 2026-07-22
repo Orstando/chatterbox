@@ -35,27 +35,6 @@ for(const room of ROOMS) {
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
 const roomCount = ROOMS.length;
 
-// Websocket server
-const ws_server = new websocket.Server({ port: WEBSOCKET_PORT, host: "0.0.0.0", clientTracking: true }, () => {
-  console.log(`ChatterWSS listening on port ${WEBSOCKET_PORT}`);
-});
-// WSS connection handling
-ws_server.on('connection', (ws, req) => {
-  console.log(`[${req.socket.remoteAddress}] Client connected`);
-
-  ws.on('message', (data) => {
-    console.log(`${req.socket.remoteAddress} tried sending data: ${data}`);
-  });
-
-  ws.on('close', (code, reason) => {
-    console.log(`[${req.socket.remoteAddress}] Client disconnected`);
-  });
-
-  ws.on('error', (err) => {
-    console.log(`[${req.socket.remoteAddress}] error: ${err.message}`);
-  });
-});
-
 // Verify the JWT token provided by the client
 function verifyToken(req, res, next) {
   const token = req.headers.authorization;
@@ -320,6 +299,25 @@ app.post('/api/history', verifyToken, checkBan, async (req, res) => {
 
 app.use("/admin", admin); // admin panel
 
-app.listen(HTTP_PORT, '0.0.0.0', () => {
+server = app.listen(HTTP_PORT, '0.0.0.0', () => {
   console.log(`ChatterHTTP running on port ${HTTP_PORT}`);
+});
+
+// Websocket server
+const ws_server = new websocket.Server({ server: server, clientTracking: true });
+// WSS connection handling
+ws_server.on('connection', (ws, req) => {
+  console.log(`[${req.socket.remoteAddress}] Client connected`);
+
+  ws.on('message', (data) => {
+    console.log(`${req.socket.remoteAddress} tried sending data: ${data}`);
+  });
+
+  ws.on('close', (code, reason) => {
+    console.log(`[${req.socket.remoteAddress}] Client disconnected`);
+  });
+
+  ws.on('error', (err) => {
+    console.log(`[${req.socket.remoteAddress}] error: ${err.message}`);
+  });
 });
