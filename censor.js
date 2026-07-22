@@ -38,10 +38,12 @@ const dataset = new DataSet()
 			.addPattern(pattern`porn`),
 	);
 
-exports.censor = function(text) {
+function censor(text) {
     const matcher = new RegExpMatcher({ ...dataset.build() });
     const censor = new TextCensor();
     const matches = matcher.getAllMatches(text);
     const result = censor.applyTo(text, matches);
     return result;
 }
+
+module.exports = censor

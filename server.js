@@ -1,51 +1,24 @@
-const express = require('express'); // express, used for webserver actions
-const session = require('express-session'); // express-session, used for the admin panel
-const bcrypt = require('bcryptjs'); // BCrypt, used for hashing passwords
-const jwt = require('jsonwebtoken'); // JSON Web Token, used for authentication instead of manually using IPs (stupid behavior)
-const path = require('path'); // Wait, what?
-const fs = require('fs'); // Filesystem actions
-const websocket = require('ws'); // WebSocket server, for the web client
+const express = require('express');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const websocket = require('ws');
 const cors = require('cors');
 
-const { censor } = require('./censor')
-const config = require('./config') // .env but shittier (tm)
-const {
-  TOKEN_SECRET, SESSION_SECRET,
-  HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT
-} = config
+const censor = require('./censor');
+const admin = require("./admin");
+const { readUsers, writeUsers } = require("./db")
+const { TOKEN_SECRET, SESSION_SECRET, HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT, ROOMS } = require('./config');
 
 const userMessageTimes = {};
 const userRecentMessages = {};
-const app = express(); // Create the actual server (the express one anyway)
+const app = express(); // Create the http server
 app.use(express.text()); // Make sure to accept raw text because JSON parsing in base C is hell
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent']
 }));
-const USERS_FILE = path.join(__dirname, 'data', 'users.json');
-
-// Read the users file
-function readUsers() {
-  try {
-    if (!fs.existsSync(USERS_FILE)) {
-      return { users: [], admins: [] };
-    }
-    const data = fs.readFileSync(USERS_FILE);
-    return JSON.parse(data);
-  } catch (err) {
-    console.error("Failed to read users.json:", err);
-    return { users: [], admins: [] };
-  }
-}
-
-// Write to the users file
-function writeUsers(data) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
-}
-
-// Array that manages the rooms
-const rooms = config.ROOMS
 
 const HISTORY_LIMIT = 100; // Easily changeable if moments pass. Shattered glass? Hands of time. Where's that chime?!
 /**
@@ -54,7 +27,7 @@ const HISTORY_LIMIT = 100; // Easily changeable if moments pass. Shattered glass
 const chatHistory = {};
 
 // Initialize an empty history array for every single room
-for(const room of rooms) {
+for(const room of ROOMS) {
   chatHistory[room] = []
 }
 
@@ -64,14 +37,14 @@ const RECENT_LIMIT = 10; // How many recent messages to replay to clients on con
 const recentMessages = [];
 
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
-const roomCount = rooms.length;
+const roomCount = ROOMS.length;
 
 // Client storage, keeps track of all sockets.
 const clients = [];
 
 // Websocket server
 const ws_server = new websocket.Server({ port: WEBSOCKET_PORT, clientTracking: true }, () => {
-  console.log(`AuroraWSS listening on port ${WEBSOCKET_PORT}`);
+  console.log(`ChatterWSS listening on port ${WEBSOCKET_PORT}`);
 });
 // WSS connection handling
 ws_server.on('connection', (ws, req) => {
@@ -177,7 +150,7 @@ app.get('/api/test', checkBan, (req, res) => {
 // Grab rooms
 app.post('/api/rooms', checkBan, (req, res) => {
   res.set('Content-Type', 'text/plain');
-  const responseString = `${roomCount}|${rooms.join('|')}|`;
+  const responseString = `${roomCount}|${ROOMS.join('|')}|`;
   res.status(200).send(responseString);
   console.log("Sent room list");
 });
@@ -195,7 +168,7 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   if (!splittered[1] || !splittered[0]) {
     return res.status(200).send("ERR_MISSING_FIELD");
   }
-  if (!rooms.includes(splittered[1])) {
+  if (!ROOMS.includes(splittered[1])) {
     return res.status(200).send("ERR_FAKE_ROOM_YOU_MORON");
   }
   if (splittered[1] == "announcements") {
@@ -380,435 +353,6 @@ app.post('/api/online', async (req, res) => {
   res.status(200).send("?")
 })
 
-app.get('/admin/login', async (req, res) => {
-  res.send(`
-    <form method="POST">
-        <input name="username" placeholder="Username" required />
-        <input name="password" type="password" placeholder="Password" required />
-        <button type="submit">Login</button>
-    </form>
-    `);
-});
-app.post('/admin/login', async (req, res) => {
-  const {username, password} = req.body;
-  const users = readUsers();
-  const user = users.admins.find(user => user.username === username);
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    console.log("Wrong password");
-    return res.status(403).send(`<p>Wrong password.</p><a href='/admin/login'>Go back</a>`);
-  }
-
-  if (!user) {
-    return res.status(403).send(`<p>Wrong password.</p><a href='/admin/login'>Go back</a>`);
-  }
-
-  req.session.admin = true;
-  if (user.staff === true) {
-    req.session.staff = true;
-  }
-
-  return res.redirect("/admin");
-});
-
-app.get('/admin', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-        <noscript>
-          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap">
-        </noscript>
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-        <h2>User Negative Actions</h2>
-        <a style='color: red;' href='/admin/mute'>Mute User</a><br>
-        <a style='color: red;' href='/admin/ban'>Ban User</a><br>
-        <a style='color: red;' href='/admin/delete'>Delete User</a><br>
-        <h2>User Positive Actions</h2>
-        <a style='color: green;' href='/admin/createAccount'>Create Account</a><br>
-        <a style='color: #33351c;' href='/admin/unmute'>Unmute User</a><br>
-        <a style='color: #e79b0d;' href='/admin/unban'>Unban User</a><br>
-        <h2>Miscellaneous</h2>
-        <a style='color: blue;' href='/admin/userinfo'>Check User Information</a><br>
-        <a style='color: blue;' href='/admin/userswithip'>Check Users with IP</a><br>
-        <a style='color: green;' href='/admin/changebanreason'>Change User Ban Reason</a><br>
-      </body>
-    </html>
-  `);
-});
-
-app.get('/admin/ban', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1>Ban User</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username" required /><br><br>
-        <input name="reason" placeholder="Reason" style="width: 300px;" /><br><br>
-        <button type="submit">Ban</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/ban', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const {username, reason} = req.body;
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-  if (user) {
-    user.banned = true;
-    user.banReason = reason || "No reason specified";
-  }
-  writeUsers(users);
-
-  return res.send(`
-    <p>User banned!</p>
-    <p>Reason: ${reason || "No reason specified"}</p>
-    <a href="/admin">Go back</a>
-    `);
-});
-app.get('/admin/unban', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1>Unban User</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username to unban" /><br>
-        <button type="submit">Unban</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/unban', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const {username} = req.body;
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-  if (user) {
-    user.banned = false;
-    user.banReason = "";
-  }
-  writeUsers(users);
-
-  return res.send(`
-    <p>User unbanned!</p>
-    <a href="/admin">Go back</a>
-    `);
-});
-
-app.get('/admin/delete', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1 style='color: red;'>Delete User</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username" /><br>
-        <button type="submit">Delete</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/delete', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const {username} = req.body;
-  const users = readUsers();
-  users.users = users.users.filter(user => user.username !== username);
-  writeUsers(users);
-
-  return res.send(`
-    <p>User deleted!</p>
-    <a href="/admin">Go back</a>
-    `);
-});
-app.get('/admin/mute', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1 style='color: red;'>Mute User</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username" /><br>
-        <button type="submit">Mute user</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/mute', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const { username } = req.body;
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-  
-  // Commit the mute to the database
-  if (user) {
-    user.muted = true;
-    writeUsers(users);
-    return res.send(`
-      <p>User muted successfully.</p>
-      <a href="/admin">Go back</a>
-    `);
-  }
-
-  return res.send(`
-    <p>User not found.</p>
-    <a href="/admin">Go back</a>
-  `);
-});
-app.get('/admin/unmute', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1 style='color: green;'>Unmute User</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username" /><br>
-        <button type="submit">Unmute user</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/unmute', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const { username } = req.body;
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-  
-  if (user) {
-    user.muted = false;
-    writeUsers(users);
-  }
-
-
-  return res.send(`
-    <p>User unmuted!</p>
-    <a href="/admin">Go back</a>
-  `);
-});
-
-app.get('/admin/createAccount', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1 style='color: green;'>Create User</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username" required /><br>
-        <input name="password" placeholder="Password" /><br>
-        <input name="passwordHash" placeholder="Password Hash" /><br>
-        <button type="submit">Create Account</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/createAccount', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const {username, password, passwordHash} = req.body;
-  
-
-  const users = readUsers();
-  if (users.users.find(user => user.username === username)) {
-    console.log("Signup: account already in use");
-    return res.status(409).send("ERR_USER_USED");
-  }
-
-  var hashedPassword;
-  if (!passwordHash) {
-    hashedPassword = await bcrypt.hash(password, 10);
-  } else if (!password) {
-    hashedPassword = passwordHash
-  } else {
-      return res.send(`
-        <p>You need to at least include a password or a password hash.</p>
-        <a href="/admin">Go back</a>
-      `);
-  }
-  
-  const newUser = { id: Date.now().toString(), username, password: hashedPassword, admin: false, ip: req.ip, banned: false, banReason: "", muted: false };
-  users.users.push(newUser);
-  writeUsers(users);
-
-  return res.send(`
-    <p>User created!</p>
-    <a href="/admin">Go back</a>
-  `);
-});
-
-app.get('/admin/userinfo', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1 style='color: green;'>Check User Information</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username" required /><br>
-        <button type="submit">Grab Info</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/userinfo', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const {username} = req.body;
-  
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-
-  return res.send(`
-    <p>Username: ${user.username}<br>Password Hash: ${user.password}<br>ID: ${user.id}<br>Banned: ${user.banned}<br>Ban Reason: ${user.banReason || "None"}<br>Muted: ${user.muted}<br>IP: <a href="#" onclick="return postName(this)">${user.ip}</a></p>
-    <a href="/admin">Go back</a>
-    <script>
-      function postName(el) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/admin/userswithip';
-
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'ip';
-        input.value = '${user.ip}';
-
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-
-        return false;
-      }
-    </script>
-    `);
-});
 app.post('/api/isadmin', async (req, res) => {
   const {username} = req.body;
   
@@ -820,118 +364,8 @@ app.post('/api/isadmin', async (req, res) => {
   res.status(200).send(`${user.admin}`)
 });
 
-app.get('/admin/userswithip', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+app.use("/admin", admin); // admin panel
 
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1 style='color: green;'>Check Users with IP</h1>
-      <form method="POST">
-        <input name="ip" placeholder="IP" required /><br>
-        <button type="submit">Submit</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/userswithip', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const {ip} = req.body;
-  
-  const users = readUsers()["users"];
-  const matches = users.filter(item => item.ip === ip).map(item => item.username);
-  const usernamesHtml = matches.map(username => `<a href="#" onclick="return postName(this)"><p>${username}</p></a>`).join("\n");
-
-  return res.send(`
-    ${usernamesHtml}
-    <a href="/admin">Go back</a>
-    <script>
-    function postName(el) {
-        const username = el.textContent.trim();
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/admin/userinfo';
-
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'username';
-        input.value = username;
-
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-
-        return false;
-    }
-    </script>
-    `);
-});
-
-app.get('/admin/changebanreason', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  return res.send(`
-    <html>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-
-        <style>
-          h1, p, h2, a {
-            font-family: 'Roboto', Arial, sans-serif;
-          }
-        </style>
-      </head>
-      <body>
-      <h1 style='color: green;'>Change User Ban Reason</h1>
-      <form method="POST">
-        <input name="username" placeholder="Username" required /><br>
-        <input name="reason" placeholder="Reason" required /><br>
-        <button type="submit">Change Ban Reason</button>
-    </form>
-    </body>
-    </html>
-  `);
-});
-
-app.post('/admin/changebanreason', async (req, res) => {
-  if (!req.session.admin) {
-    return res.redirect("/admin/login");
-  }
-  const {username, reason} = req.body;
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-  if (user) {
-    user.banReason = reason || "No reason specified";
-  }
-  writeUsers(users);
-
-  return res.send(`
-    <p>Changed user ban reason!</p>
-    <p>Reason: ${reason || "No reason specified"}</p>
-    <a href="/admin">Go back</a>
-    `);
-});
-
-app.listen(HTTP_PORT, () => {
-  console.log(`AuroraHTTP running on port ${HTTP_PORT}`);
+app.listen(HTTP_PORT, '0.0.0.0', () => {
+  console.log(`ChatterHTTP running on port ${HTTP_PORT}`);
 });
