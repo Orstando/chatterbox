@@ -13,7 +13,7 @@ function readUsers() {
     return JSON.parse(data);
   } catch (err) {
     console.error("Failed to read users.json:", err);
-    return { users: [], admins: [] };
+    return { users: [] };
   }
 }
 
