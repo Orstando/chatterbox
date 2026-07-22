@@ -1,6 +1,7 @@
 const express = require("express");
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const ejs = require('ejs')
 
 const {readUsers, writeUsers} = require("./db")
 const { TOKEN_SECRET, SESSION_SECRET, HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT, ROOMS } = require('./config');

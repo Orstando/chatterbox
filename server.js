@@ -33,11 +33,6 @@ for(const room of ROOMS) {
   chatHistory[room] = []
 }
 
-const RECENT_LIMIT = 10; // How many recent messages to replay to clients on connect
-// Ring buffer of the last few broadcast lines (stored verbatim so replay is byte-identical to a live broadcast)
-/** @type { string[] } */
-const recentMessages = [];
-
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
 const roomCount = ROOMS.length;
 
@@ -52,46 +47,8 @@ const ws_server = new websocket.Server({ port: WEBSOCKET_PORT, clientTracking: t
 ws_server.on('connection', (ws, req) => {
   console.log(`[${req.socket.remoteAddress}] Client connected`);
 
-  // Replay recent messages so there's some permanence across reconnects
-  for(const line of recentMessages) {
-    ws.send(line);
-  }
-
   ws.on('message', (data) => {
-    const msg = data.toString('utf-8').trim()
-    const parts = msg.split('|')
-
-    if(parts[0] === 'history') {
-      let limit = parts[1] ? parseInt(parts[1]) : 0
-      const room = parts[2]
-      if(limit == NaN) limit = 0
-      if(limit < 0) limit = 0
-      let message = ''
-      if(room) {
-        const history = chatHistory[room]
-        if(history) 
-          for(const msg of history) {
-            message += `${msg.username}|${msg.message}|${room}|\n`
-          }
-        else {
-          console.log(`${req.socket.remoteAddress} requested message history for nonexistent room (${room})`)
-          return
-        }
-      } else for(const room in chatHistory) {
-        const history = chatHistory[room]
-        for(const msg of history) {
-          message += `${msg.username}|${msg.message}|${room}|\n`
-        }
-      }
-      if(limit && message.length > limit) {
-        message = message.substring(message.length - limit, message.length)
-      }
-      ws.send(message)
-      console.log(`${req.socket.remoteAddress} requested message history`)
-      return
-    }
-
-    console.log(`${req.socket.remoteAddress} tried sending data (Murder him): ${data}`);
+    console.log(`${req.socket.remoteAddress} tried sending data: ${data}`);
   });
 
   ws.on('close', (code, reason) => {
@@ -223,11 +180,6 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   }
   var censored = censor(req.body)
   var line = `${req.user.username}|${censored}|\n`
-  // Cache the last few messages so we can replay them to clients on connect
-  recentMessages.push(line);
-  if (recentMessages.length > RECENT_LIMIT) {
-    recentMessages.splice(0, recentMessages.length - RECENT_LIMIT);
-  }
 
   clients.forEach(client => {
     client.write(line);
@@ -368,6 +320,31 @@ app.post('/api/isadmin', async (req, res) => {
   }
   res.status(200).send(`${user.admin}`)
 });
+
+// {"room": "#general"}
+app.post('/api/history', verifyToken, checkBan, async (req, res) => {
+  const data = req.body;
+  let messages = []
+  if(data.room) {
+    const history = chatHistory[data.room]
+    if(history) {
+      for(const msg of history) {
+        messages.push({
+          "author": msg.username,
+          "content": msg.message,
+        });
+      }
+    }
+  } else {
+    console.log(`${req.ip} requested message history for nonexistent room (${data.room})`)
+    return res.status(404).send({
+      "error": "Room not found"
+    });
+  }
+  res.status(200).send(messages)
+  console.log(`${req.ip} requested message history`)
+  return
+})
 
 app.use("/admin", admin); // admin panel
 
