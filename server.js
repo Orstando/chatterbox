@@ -300,7 +300,7 @@ app.post('/api/history', verifyToken, checkBan, async (req, res) => {
 app.use("/admin", admin); // admin panel
 
 server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`ChatterHTTP running on port ${HTTP_PORT}`);
+  console.log(`ChatterHTTP running on port ${PORT}`);
 });
 
 // Websocket server
