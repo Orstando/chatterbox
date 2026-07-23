@@ -10,7 +10,7 @@ const fs = require('fs');
 const censor = require('./censor');
 const admin = require("./admin");
 const { readUsers, writeUsers } = require("./db")
-const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT, WEB_CLIENT_URL, WEB_CLIENT_ISSECURE, IS_CLOUDFLARE } = require('./config');
+const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT } = require('./config');
 
 const userMessageTimes = {};
 const userRecentMessages = {};
@@ -21,8 +21,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent']
 }));
-app.set('view engine', 'ejs');
-app.set('views', '.');
 
 /**
  * @type { Object.<string,{ username: string, message: string }[]> }
@@ -36,13 +34,6 @@ for(const room of ROOMS) {
 
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
 const roomCount = ROOMS.length;
-
-function cloudflareIp(req, res, next) {
-  if (IS_CLOUDFLARE) {
-    req.ip = req.headers["CF-Connecting-IP"]
-  }
-}
-app.use(cloudflareIp);
 
 // Verify the JWT token provided by the client
 function verifyToken(req, res, next) {
@@ -83,9 +74,6 @@ function checkBan(req, res, next) {
 
 // web version
 app.use('/web', express.static('web'));
-app.get('/web', function (req, res) {
-  return res.render('web/index', {"url": WEB_CLIENT_URL, "isSecure": WEB_CLIENT_ISSECURE});
-})
 app.get('/', checkBan, (req, res) => {
   return res.redirect("/web");
 })
