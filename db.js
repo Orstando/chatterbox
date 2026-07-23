@@ -7,7 +7,7 @@ const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 function readUsers() {
   try {
     if (!fs.existsSync(USERS_FILE)) {
-      return { users: [], admins: [] };
+      return { users: [] };
     }
     const data = fs.readFileSync(USERS_FILE);
     return JSON.parse(data);

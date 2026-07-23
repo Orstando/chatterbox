@@ -108,4 +108,17 @@ class Client {
     const data = await response.json();
     return data.count;
   }
+  async history(token, room) {
+    const response = await fetch(this.url+"/api/history", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': this.ua,
+        'Authorization': token
+      },
+      body: JSON.stringify({"room": room})
+    })
+    const data = await response.json();
+    return data
+  }
 }
