@@ -837,6 +837,7 @@
           hackyFixDiv.appendChild(hackyFixBr);
           document.getElementById("messages").appendChild(hackyFixDiv);
         });
+        getHistory();
       }
       async function getRooms() {
         data = await client.rooms(token);
@@ -846,6 +847,13 @@
         })
         return data;
       }
+      async function getHistory() {
+        messages = await client.history(token, currentRoom[0]);
+        messages.forEach((message) => {
+          appendMsg(message.pfp, message.author, message.content, message.platform, message.image);
+        });
+      }
+
       if (!handleToken()) { // disable nav if not signed in
         toggleNav("all");
       } else {
