@@ -11,7 +11,7 @@
 
 ```bash
 git clone https://github.com/Orstando/chatterbox.git
-cd aurorachat-server
+cd chatterbox
 
 # Install dependencies
 npm i
