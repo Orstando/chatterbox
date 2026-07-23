@@ -136,10 +136,7 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
   }
 
   if (chatHistory[data.room]) {
-    chatHistory[data.room].push({
-      username: req.user.username,
-      message: censored
-    });
+    chatHistory[data.room].push(result);
 
     // drop the oldest message if we exceed it
     if (chatHistory[data.room].length > HISTORY_LIMIT) {
@@ -254,14 +251,14 @@ app.get('/api/changelog', async (req, res) => {
 
 app.use(express.json());
 
-app.post('/api/online', async (req, res) => {
-  room = req.body;
+app.get('/api/online', async (req, res) => {
+  room = req.query.room;
   // get online count for room, currently placeholder
   res.status(200).send({"count": 1})
 })
 
-app.post('/api/isadmin', async (req, res) => {
-  const {username} = req.body;
+app.get('/api/isadmin', async (req, res) => {
+  const username = req.query.username;
   
   const users = readUsers();
   const user = users.users.find(user => user.username === username);
@@ -271,18 +268,14 @@ app.post('/api/isadmin', async (req, res) => {
   res.status(200).send({"result": user.admin})
 });
 
-// {"room": "general"}
-app.post('/api/history', verifyToken, checkBan, async (req, res) => {
-  const data = req.body;
+app.get('/api/history', verifyToken, checkBan, async (req, res) => {
+  const room = req.query.room;
   let messages = []
-  if(data.room) {
-    const history = chatHistory[data.room]
+  if(room) {
+    const history = chatHistory[room]
     if(history) {
       for(const msg of history) {
-        messages.push({
-          "author": msg.username,
-          "content": msg.message,
-        });
+        messages.push(msg);
       }
     }
   } else {
