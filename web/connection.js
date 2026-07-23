@@ -96,11 +96,10 @@ class Client {
     return data;
   }
   async online(token, room) {
-    const url = this.url+"/api/online"+new URLSearchParams({room: room});
+    const url = this.url+"/api/online?"+new URLSearchParams({room: room});
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'User-Agent': this.ua,
         'Authorization': token
       }
@@ -109,17 +108,27 @@ class Client {
     return data.count;
   }
   async history(token, room) {
-    const url = this.url+"/api/history"+new URLSearchParams({room: room});
+    const url = this.url+"/api/history?"+new URLSearchParams({room: room});
     const response = await fetch(url, {
-      method: 'POST',
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
         'User-Agent': this.ua,
         'Authorization': token
-      },
-      body: JSON.stringify({"room": room})
+      }
     })
     const data = await response.json();
     return data
+  }
+  async isAdmin(token, username) {
+    const url = this.url+"/api/isadmin?"+new URLSearchParams({username: username});
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': this.ua,
+        'Authorization': token
+      }
+    })
+    const data = await response.json();
+    return data.result
   }
 }
