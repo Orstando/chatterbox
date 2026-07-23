@@ -109,7 +109,6 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
       }
     }
   }
-  const user = users.users.find(user => user.username === req.user.username);
   if (user) {
     if (user.banned) {
       const reason = user.banReason || "No reason specified";
