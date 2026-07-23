@@ -10,4 +10,6 @@ exports.ROOMS = [
 ]
 exports.USERNAME_LIMIT = 30
 exports.HISTORY_LIMIT = 100
-exports.MESSAGE_LIMIT = 1000
+exports.WEB_CLIENT_URL = "127.0.0.1:3033"
+exports.WEB_CLIENT_ISSECURE = false
+exports.IS_CLOUDFLARE = false
