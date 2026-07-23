@@ -73,7 +73,7 @@ function checkBan(req, res, next) {
 }
 
 // web version
-app.use('/web', express.static('web'));
+app.use('/web', checkBan, express.static('web'));
 app.get('/', checkBan, (req, res) => {
   return res.redirect("/web");
 })
@@ -99,9 +99,9 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
     return res.status(200).send({"error": "Room not found"});
   }
   const users = readUsers();
+  const user = users.users.find(user => user.username === req.user.username);
   if (data.room == "announcements") {
     console.log("Message in announcements:");
-    const user = users.users.find(user => user.username === req.user.username);
     if (user) {
       if (!user.admin) {
         console.log("Not enough rights");
@@ -109,13 +109,13 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
       }
     }
   }
-  const user2 = users.users.find(user => user.username === req.user.username);
-  if (user2) {
-    if (user2.banned) {
-      const reason = user2.banReason || "No reason specified";
+  const user = users.users.find(user => user.username === req.user.username);
+  if (user) {
+    if (user.banned) {
+      const reason = user.banReason || "No reason specified";
       return res.status(200).send({"error": "Banned", "reason": reason});
     }
-    if (user2.muted) {
+    if (user.muted) {
       console.log(`Muted user ${req.user.username} tried to chat.`);
       return res.status(200).send({"error": "Muted"});
     }
@@ -177,7 +177,7 @@ app.post('/api/signup', checkBan, async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = { id: Date.now().toString(), username, password: hashedPassword, admin: false, ip: req.ip, banned: false, banReason: "", muted: false };
+  const newUser = { id: Date.now().toString(), username, password: hashedPassword, ip: req.ip };
   users.users.push(newUser);
   writeUsers(users);
 
