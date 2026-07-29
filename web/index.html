@@ -776,6 +776,7 @@
         handleToken(data.token);
         toggleNav("all"); // enable nav
         getRooms();
+        enterRoom("general", "https://placehold.co/64?text=g")
         gotoPage("chat");
       }
       
@@ -808,6 +809,8 @@
         }
         handleToken(data.token);
         toggleNav("all"); // enable nav
+        getRooms();
+        enterRoom("general", "https://placehold.co/64?text=g")
         gotoPage("chat");
       }
       currentRoom = null;
@@ -858,10 +861,9 @@
         toggleNav("all");
       } else {
         getRooms();
+        enterRoom("general", "https://placehold.co/64?text=g")
         gotoPage("chat");
       }
-      
-      enterRoom("general", "https://placehold.co/64?text=g")
     </script>
   </body>
 </html>

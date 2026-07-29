@@ -11,3 +11,4 @@ exports.ROOMS = [
 exports.USERNAME_LIMIT = 30
 exports.HISTORY_LIMIT = 100
 exports.MESSAGE_LIMIT = 1000
+exports.IS_CLOUDFLARE = false

@@ -22,4 +22,14 @@ function writeUsers(data) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
 }
 
+function getUser(username) {
+  
+}
+function createUser(username, password) {
+
+}
+function updateIp(username, ip) {
+
+}
+
 module.exports = { readUsers, writeUsers }

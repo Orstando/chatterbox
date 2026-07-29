@@ -9,8 +9,8 @@ const fs = require('fs');
 
 const censor = require('./censor');
 const admin = require("./admin");
-const { readUsers, writeUsers } = require("./db")
-const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT } = require('./config');
+const { readUsers, writeUsers } = require("./db");
+const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT, IS_CLOUDFLARE } = require('./config');
 
 const userMessageTimes = {};
 const userRecentMessages = {};
@@ -34,6 +34,14 @@ for(const room of ROOMS) {
 
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
 const roomCount = ROOMS.length;
+
+// Get IP via Cloudflare header
+app.use(function(req, res, next) {
+  if (IS_CLOUDFLARE) {
+    req.ip = req.headers["CF-Connecting-IP"];
+  }
+  next();
+});
 
 // Verify the JWT token provided by the client
 function verifyToken(req, res, next) {
