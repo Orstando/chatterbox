@@ -705,7 +705,7 @@
       client.onMessage = function(data) {
         console.log("recieved",data)
         if (data.room == currentRoom[0]) {
-          appendMsg(data.pfp, data.author, data.content, data.platform, data.image);
+          appendMsg(data.pfp, data.author.name, data.content, data.platform, data.image);
         };
       }
       client.onError = function(error) {

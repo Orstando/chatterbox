@@ -180,7 +180,6 @@ app.post('/api/login', async (req, res) => {
   const password = data.password;
 
   const id = await userdb.getUIDByName(username);
-  console.log(id)
   const user = await userdb.getUser(id)
   if (!user || !(await bcrypt.compare(password, (new TextDecoder().decode(user.password))))) {
     console.log("Wrong password");
