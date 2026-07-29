@@ -9,8 +9,10 @@ const fs = require('fs');
 
 const censor = require('./censor');
 const admin = require("./admin");
-const { readUsers, writeUsers } = require("./db");
+const { UserDatabase, MessageDatabase } = require("./db");
 const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT, IS_CLOUDFLARE } = require('./config');
+
+const userdb = new UserDatabase();
 
 const userMessageTimes = {};
 const userRecentMessages = {};
@@ -22,9 +24,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent']
 }));
 
-/**
- * @type { Object.<string,{ username: string, message: string }[]> }
- */
 const chatHistory = {};
 
 // Initialize an empty history array for every single room
@@ -55,7 +54,7 @@ function verifyToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, TOKEN_SECRET);
-    req.user = decoded;
+    req.uid = decoded.id;
     next();
   } catch (err) {
     console.log(`Token error: ${err}`);
@@ -64,79 +63,67 @@ function verifyToken(req, res, next) {
 }
 
 // Check if an IP is banned
-function checkBan(req, res, next) {
-  const users = readUsers();
-  const user = users.users.find(user => user.ip === req.ip);
-  if (user) {
-    if (user.banned == true) {
-      console.log(`Banned user attempted access: ${user.username}`);
-      const reason = user.banReason || "No reason specified";
-      return res.send({"error": "Banned", "reason": reason});
-    } else {
-      next();
-    }
+async function checkBan(req, res, next) {
+  result = await userdb.isIpBanned(req.ip);
+  if (result) {
+      console.log(`Banned user attempted access: ${result.id}`);
+      return res.send({"error": "Banned", "reason": result.reason});
   } else {
     next();
   }
 }
+app.use(checkBan);
 
 // web version
-app.use('/web', checkBan, express.static('web'));
-app.get('/', checkBan, (req, res) => {
+app.use('/web', express.static('web'));
+app.get('/', (req, res) => {
   return res.redirect("/web");
 })
 
 // Unused, simple API test
-app.get('/api/test', checkBan, (req, res) => {
+app.get('/api/test', (req, res) => {
   res.set('Content-Type', 'application/json');
   res.status(200).send({"result": "Online"});
   console.log(`${req.ip} requested API status`);
 });
 
 // Grab rooms
-app.get('/api/rooms', verifyToken, checkBan, (req, res) => {
+app.get('/api/rooms', verifyToken, (req, res) => {
   res.set('Content-Type', 'application/json');
   res.status(200).send(ROOMS);
   console.log("Sent room list");
 });
 
 // {"room": "general", "content": "test", "platform": "Web", "img": "[image url]"}
-app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
+app.post('/api/chat', verifyToken, async (req, res) => {
   var data = req.body
   if (!ROOMS.includes(data.room)) {
     return res.status(200).send({"error": "Room not found"});
   }
-  const users = readUsers();
-  const user = users.users.find(user => user.username === req.user.username);
   if (data.room == "announcements") {
     console.log("Message in announcements:");
-    if (user) {
-      if (!user.admin) {
-        console.log("Not enough rights");
-        return res.send({"error": "No permission"});
-      }
+    if (!(await userdb.isAdmin(req.uid))) {
+      console.log("Not enough rights");
+      return res.send({"error": "No permission"});
     }
   }
-  if (user) {
-    if (user.banned) {
-      const reason = user.banReason || "No reason specified";
-      return res.status(200).send({"error": "Banned", "reason": reason});
-    }
-    if (user.muted) {
-      console.log(`Muted user ${req.user.username} tried to chat.`);
-      return res.status(200).send({"error": "Muted"});
-    }
-  } else {
-    return res.status(404).send({"error": "User not found"});
+  const isbanned = await userdb.isUserBanned(req.uid);
+  if (isbanned) {
+    const reason = isbanned.reason;
+    return res.status(200).send({"error": "Banned", "reason": reason});
   }
   if (data.content.length > MESSAGE_LIMIT) {
     return res.status(200).send({"error": "Message too long", "limit": MESSAGE_LIMIT});
   }
-  console.log(`[${req.ip}] ${req.user.username}: ${JSON.stringify(req.body)}`);
+  console.log(`[${req.ip}] ${req.uid}: ${JSON.stringify(req.body)}`);
 
   var censored = censor(data.content)
+  var name = (await userdb.getUser(req.uid)).username
   var result = {
-    "author": req.user.username,
+    "author": {
+      "id": req.uid,
+      "name": name
+    },
     "content": censored,
     "room": data.room,
     "pfp": "img/pfp.png", // placeholder
@@ -152,7 +139,7 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
     }
   }
 
-  console.log("sent",JSON.stringify(result))
+  console.log("sent", JSON.stringify(result))
   ws_server.clients.forEach(client => {
     client.send(JSON.stringify(result));
   });
@@ -161,7 +148,7 @@ app.post('/api/chat', verifyToken, checkBan, async (req, res) => {
 
 
 // {"username": "orstando", "password": "wowsopassword"}
-app.post('/api/signup', checkBan, async (req, res) => {
+app.post('/api/signup', async (req, res) => {
   const data = req.body
   const username = data.username;
   const password = data.password;
@@ -174,41 +161,39 @@ app.post('/api/signup', checkBan, async (req, res) => {
     console.log("Signup: Username too long");
     return res.send({"error": "Username too long", "limit": USERNAME_LIMIT});
   }
-  const users = readUsers();
-  if (users.users.find(user => user.username === username)) {
+  if (await userdb.doesUnameExist(username)) {
     console.log("Signup: account already in use");
     return res.send({"error": "Username unavailable"});
   }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = { id: Date.now().toString(), username, password: hashedPassword, ip: req.ip };
-  users.users.push(newUser);
-  writeUsers(users);
-
-  const token = jwt.sign({ id: newUser.id, username }, TOKEN_SECRET, { expiresIn: '1h' });
+  await userdb.createUser(username, password);
+  const newUserId = await userdb.getUIDByName(username)
+  console.log(newUserId)
+  const token = jwt.sign({id: newUserId}, TOKEN_SECRET, { expiresIn: '1h' });
   console.log("Account created!");
   return res.status(200).send({"token": token});
 });
 
 // {"username": "orstando", "password": "wowsopassword"}
-app.post('/api/login', checkBan, async (req, res) => {
+app.post('/api/login', async (req, res) => {
   const data = req.body
   const username = data.username;
   const password = data.password;
 
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  const id = await userdb.getUIDByName(username);
+  console.log(id)
+  const user = await userdb.getUser(id)
+  if (!user || !(await bcrypt.compare(password, (new TextDecoder().decode(user.password))))) {
     console.log("Wrong password");
     return res.send({"error": "Incorrect username or password"});
   }
 
-  if (user.banned) {
-    const reason = user.banReason || "No reason specified";
+  const isbanned = await userdb.isUserBanned(user.id);
+  if (isbanned) {
+    const reason = isbanned.reason;
     return res.status(200).send({"error": "Banned", "reason": reason});
   }
 
-  const token = jwt.sign({ id: user.id, username }, TOKEN_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ id: user.id }, TOKEN_SECRET, { expiresIn: '1h' });
   console.log("Client logged in!");
   return res.status(200).send({"token": token});
 });
@@ -219,7 +204,14 @@ app.use(session({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: function (req) {
+      return {
+        path: '/',
+        httpOnly: true,
+        secure: req.secure,
+        maxAge: 3600000
+      }
+    }
 }));
 
 app.use(express.text());
@@ -266,17 +258,17 @@ app.get('/api/online', async (req, res) => {
 })
 
 app.get('/api/isadmin', async (req, res) => {
-  const username = req.query.username;
-  
-  const users = readUsers();
-  const user = users.users.find(user => user.username === username);
-  if (!user) {
-    return res.status(404).send("Invalid user.");
-  }
-  res.status(200).send({"result": user.admin})
+  const id = req.query.id;
+  const result = !!userdb.isAdmin(id)
+  res.status(200).send({"result": result})
 });
+app.get('/api/idfromname', async (req, res) => {
+  const username = req.query.name;
+  const result = userdb.getUIDByName(username);
+  res.status(200).send({"result": result});
+})
 
-app.get('/api/history', verifyToken, checkBan, async (req, res) => {
+app.get('/api/history', verifyToken, async (req, res) => {
   const room = req.query.room;
   let messages = []
   if(room) {
@@ -300,7 +292,7 @@ app.get('/api/history', verifyToken, checkBan, async (req, res) => {
 app.use("/admin", admin); // admin panel
 
 server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`ChatterHTTP running on port ${PORT}`);
+  console.log(`Chatterbox running on port ${PORT}`);
 });
 
 // Websocket server
