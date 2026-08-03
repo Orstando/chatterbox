@@ -36,7 +36,14 @@ const dataset = new DataSet()
 		phrase
 			.setMetadata({ originalWord: 'porn' })
 			.addPattern(pattern`porn`),
-	);
+	)
+	.addPhrase((phrase) =>
+		phrase
+			.setMetadata({ originalWord: 'vagina'})
+			.addPattern(pattern`vagina`)
+			.addPattern(pattern`vag`)
+			.addPattern(pattern`pussy`)
+	)
 
 function censor(text) {
     const matcher = new RegExpMatcher({ ...dataset.build() });
