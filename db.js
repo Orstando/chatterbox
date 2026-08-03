@@ -68,6 +68,7 @@ class UserDatabase {
     return !!this.db.prepare("SELECT * FROM users WHERE username = ?").get(username);
   }
 }
+
 // wip
 class MessageDatabase {
   constructor() {
