@@ -6,11 +6,29 @@ const websocket = require('ws');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { globbySync } = require('globby');
 
 const censor = require('./censor');
 const admin = require("./admin");
 const { UserDatabase, MessageDatabase } = require("./db");
 const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT, IS_CLOUDFLARE } = require('./config');
+const { send } = require('process');
+
+// Load plugins
+const plugins = [];
+
+const pluginFileNames = globbySync("./plugins/*.js");
+pluginFileNames.forEach(filename => {
+  const pluginInit = require(filename.match(".*(?=\.js)")[0]);
+  const pluginOnMsg = pluginInit();
+  plugins.push(pluginOnMsg)
+});
+
+function sendPluginData(data) {
+  plugins.forEach(pluginOnMsg => {
+    pluginOnMsg(data);
+  })
+}
 
 const userdb = new UserDatabase();
 

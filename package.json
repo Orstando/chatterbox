@@ -26,6 +26,7 @@
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "express-ws": "^5.0.2",
+    "globby": "^16.2.3",
     "jsonwebtoken": "^9.0.3",
     "obscenity": "^0.4.6",
     "sqlite3": "^6.0.1",
