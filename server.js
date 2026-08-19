@@ -20,6 +20,15 @@ const plugins = [];
 
 class PluginUtility {
   sendMessage(data) {
+    if (chatHistory[data.room]) {
+      console.log("hist",data)
+      chatHistory[data.room].push(data);
+
+      // drop the oldest message if we exceed it
+      if (chatHistory[data.room].length > config.history_limit) {
+        chatHistory[data.room].splice(0, chatHistory[data.room].length - config.history_limit)
+      }
+    }
     ws_server.clients.forEach(client => {
       client.send(JSON.stringify(data));
     });

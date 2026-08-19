@@ -853,7 +853,7 @@
       async function getHistory() {
         messages = await client.history(token, currentRoom[0]);
         messages.forEach((message) => {
-          appendMsg(message.pfp, message.author, message.content, message.platform, message.image);
+          appendMsg(message.pfp, message.author.name, message.content, message.platform, message.image);
         });
       }
 
