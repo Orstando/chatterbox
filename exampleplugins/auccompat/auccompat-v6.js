@@ -1,4 +1,4 @@
-const Client = require("./lib/connection")
+const Client = require("./lib/connection-v6")
 
 aucusername = "chatterbox-bridge"
 aucpassword = "abc123"
