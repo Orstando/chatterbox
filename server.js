@@ -11,16 +11,25 @@ const { globbySync } = require('globby');
 const censor = require('./censor');
 const admin = require("./admin");
 const { UserDatabase, MessageDatabase } = require("./db");
-const { TOKEN_SECRET, SESSION_SECRET, PORT, ROOMS, USERNAME_LIMIT, HISTORY_LIMIT, MESSAGE_LIMIT, IS_CLOUDFLARE } = require('./config');
+const config = require('./config');
+
 const { send } = require('process');
 
 // Load plugins
 const plugins = [];
 
+class PluginUtility {
+  sendMessage(data) {
+    ws_server.clients.forEach(client => {
+      client.send(JSON.stringify(data));
+    });
+  }
+}
 const pluginFileNames = globbySync("./plugins/*.js");
 pluginFileNames.forEach(filename => {
   const pluginInit = require(filename.match(".*(?=\.js)")[0]);
-  const pluginOnMsg = pluginInit();
+  const pluginUtility = new PluginUtility()
+  const pluginOnMsg = pluginInit(pluginUtility);
   plugins.push(pluginOnMsg)
 });
 
@@ -45,17 +54,17 @@ app.use(cors({
 const chatHistory = {};
 
 // Initialize an empty history array for every single room
-for(const room of ROOMS) {
+for(const room of config.rooms) {
   chatHistory[room] = []
 }
 
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
-const roomCount = ROOMS.length;
+const roomCount = config.rooms.length;
 
 // Get IP via Cloudflare header
 app.use(function(req, res, next) {
-  if (IS_CLOUDFLARE) {
-    req.ip = req.headers["CF-Connecting-IP"];
+  if (config.using_proxy) {
+    req.ip = req.headers[config.proxy_ip_header];
   }
   next();
 });
@@ -71,7 +80,7 @@ function verifyToken(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, TOKEN_SECRET);
+    const decoded = jwt.verify(token, config.token_secret);
     req.uid = decoded.id;
     next();
   } catch (err) {
@@ -108,14 +117,14 @@ app.get('/api/test', (req, res) => {
 // Grab rooms
 app.get('/api/rooms', verifyToken, (req, res) => {
   res.set('Content-Type', 'application/json');
-  res.status(200).send(ROOMS);
+  res.status(200).send(config.rooms);
   console.log("Sent room list");
 });
 
 // {"room": "general", "content": "test", "platform": "Web", "img": "[image url]"}
 app.post('/api/chat', verifyToken, async (req, res) => {
   var data = req.body
-  if (!ROOMS.includes(data.room)) {
+  if (!config.rooms.includes(data.room)) {
     return res.status(200).send({"error": "Room not found"});
   }
   if (data.room == "announcements") {
@@ -130,8 +139,8 @@ app.post('/api/chat', verifyToken, async (req, res) => {
     const reason = isbanned.reason;
     return res.status(200).send({"error": "Banned", "reason": reason});
   }
-  if (data.content.length > MESSAGE_LIMIT) {
-    return res.status(200).send({"error": "Message too long", "limit": MESSAGE_LIMIT});
+  if (data.content.length > config.message_limit) {
+    return res.status(200).send({"error": "Message too long", "limit": config.message_limit});
   }
   console.log(`[${req.ip}] ${req.uid}: ${JSON.stringify(req.body)}`);
 
@@ -152,8 +161,8 @@ app.post('/api/chat', verifyToken, async (req, res) => {
     chatHistory[data.room].push(result);
 
     // drop the oldest message if we exceed it
-    if (chatHistory[data.room].length > HISTORY_LIMIT) {
-      chatHistory[data.room].splice(0, chatHistory[data.room].length - HISTORY_LIMIT)
+    if (chatHistory[data.room].length > config.history_limit) {
+      chatHistory[data.room].splice(0, chatHistory[data.room].length - config.history_limit)
     }
   }
 
@@ -161,6 +170,7 @@ app.post('/api/chat', verifyToken, async (req, res) => {
   ws_server.clients.forEach(client => {
     client.send(JSON.stringify(result));
   });
+  sendPluginData({"type": "message", "data": result})
   return res.status(200).send({"result": "Success"});
 });
 
@@ -175,9 +185,9 @@ app.post('/api/signup', async (req, res) => {
     console.log("Signup: missing fields");
     return res.send({"error": "Missing fields"});
   }
-  if (username.length > USERNAME_LIMIT) {
+  if (username.length > config.username_limit) {
     console.log("Signup: Username too long");
-    return res.send({"error": "Username too long", "limit": USERNAME_LIMIT});
+    return res.send({"error": "Username too long", "limit": config.username_limit});
   }
   if (await userdb.doesUnameExist(username)) {
     console.log("Signup: account already in use");
@@ -186,7 +196,7 @@ app.post('/api/signup', async (req, res) => {
   await userdb.createUser(username, password);
   const newUserId = await userdb.getUIDByName(username)
   console.log(newUserId)
-  const token = jwt.sign({id: newUserId}, TOKEN_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({id: newUserId}, config.token_secret, { expiresIn: '1h' });
   console.log("Account created!");
   return res.status(200).send({"token": token});
 });
@@ -210,7 +220,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(200).send({"error": "Banned", "reason": reason});
   }
 
-  const token = jwt.sign({ id: user.id }, TOKEN_SECRET, { expiresIn: '1h' });
+  const token = jwt.sign({ id: user.id }, config.token_secret, { expiresIn: '1h' });
   console.log("Client logged in!");
   return res.status(200).send({"token": token});
 });
@@ -218,7 +228,7 @@ app.post('/api/login', async (req, res) => {
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({
-    secret: SESSION_SECRET,
+    secret: config.session_secret,
     resave: false,
     saveUninitialized: false,
     cookie: function (req) {
@@ -308,12 +318,12 @@ app.get('/api/history', verifyToken, async (req, res) => {
 
 app.use("/admin", admin); // admin panel
 
-server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Chatterbox running on port ${PORT}`);
+server = app.listen(config.port, '0.0.0.0', () => {
+  console.log(`Chatterbox running on port ${config.port}`);
 });
 
 // Websocket server
-const ws_server = new websocket.Server({ server: server, clientTracking: true });
+ws_server = new websocket.Server({ server: server, clientTracking: true });
 // WSS connection handling
 ws_server.on('connection', (ws, req) => {
   console.log(`[${req.socket.remoteAddress}] Client connected`);

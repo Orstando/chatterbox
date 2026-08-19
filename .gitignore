@@ -16,3 +16,4 @@ Thumbs.db
 *.tmp
 package-lock.json
 data/users.json
+config.js

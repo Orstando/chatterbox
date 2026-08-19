@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const ejs = require('ejs')
 
 const { UserDatabase, MessageDatabase } = require("./db");
-const { TOKEN_SECRET, SESSION_SECRET, HTTP_PORT, SOCKET_PORT, WEBSOCKET_PORT, ROOMS } = require('./config');
+const { config } = require('./config');
 
 const router = express.Router();
 
