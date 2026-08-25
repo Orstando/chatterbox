@@ -72,8 +72,9 @@ const roomCount = config.rooms.length;
 
 // Get IP via Cloudflare header
 app.use(function(req, res, next) {
+  req.real_ip = req.ip
   if (config.using_proxy) {
-    req.ip = req.headers[config.proxy_ip_header];
+    req.real_ip = req.headers[config.proxy_ip_header];
   }
   next();
 });
@@ -83,7 +84,7 @@ function verifyToken(req, res, next) {
   const token = req.headers.authorization;
 
   if (!token) {
-    console.log(`[${req.ip}]: Error: Invalid Token.`);
+    console.log(`[${req.real_ip}]: Error: Invalid Token.`);
     console.log(token)
     return res.send({"error": "Invalid token"});
   }
@@ -100,7 +101,7 @@ function verifyToken(req, res, next) {
 
 // Check if an IP is banned
 async function checkBan(req, res, next) {
-  result = await userdb.isIpBanned(req.ip);
+  result = await userdb.isIpBanned(req.real_ip);
   if (result) {
       console.log(`Banned user attempted access: ${result.id}`);
       return res.send({"error": "Banned", "reason": result.reason});
@@ -120,7 +121,7 @@ app.get('/', (req, res) => {
 app.get('/api/test', (req, res) => {
   res.set('Content-Type', 'application/json');
   res.status(200).send({"result": "Online"});
-  console.log(`${req.ip} requested API status`);
+  console.log(`${req.real_ip} requested API status`);
 });
 
 // Grab rooms
@@ -151,7 +152,7 @@ app.post('/api/chat', verifyToken, async (req, res) => {
   if (data.content.length > config.message_limit) {
     return res.status(200).send({"error": "Message too long", "limit": config.message_limit});
   }
-  console.log(`[${req.ip}] ${req.uid}: ${JSON.stringify(req.body)}`);
+  console.log(`[${req.real_ip}] ${req.uid}: ${JSON.stringify(req.body)}`);
 
   var censored = censor(data.content)
   var name = (await userdb.getUser(req.uid)).username
@@ -315,13 +316,13 @@ app.get('/api/history', verifyToken, async (req, res) => {
       }
     }
   } else {
-    console.log(`${req.ip} requested message history for nonexistent room (${data.room})`)
+    console.log(`${req.real_ip} requested message history for nonexistent room (${data.room})`)
     return res.status(404).send({
       "error": "Room not found"
     });
   }
   res.status(200).send(messages)
-  console.log(`${req.ip} requested message history`)
+  console.log(`${req.real_ip} requested message history`)
   return
 })
 
