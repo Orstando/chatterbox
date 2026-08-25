@@ -70,12 +70,20 @@ for(const room of config.rooms) {
 // The amount of rooms the client should parse (calculate dynamically in the future when user-created rooms exist)
 const roomCount = config.rooms.length;
 
-// Get IP via Cloudflare header
-app.use(function(req, res, next) {
-  req.real_ip = req.ip
-  if (config.using_proxy) {
-    req.real_ip = req.headers[config.proxy_ip_header];
+// Get IP via proxy header if needed
+function getRealIp(req, isWs) {
+  if (isWs) {
+    real_ip = req.socket.remoteAddress;
+  } else {
+    real_ip = req.ip;
   }
+  if (config.using_proxy) {
+    real_ip = req.headers[config.proxy_ip_header];
+  }
+  return real_ip
+}
+app.use(function(req, res, next) {
+  req.real_ip = getRealIp(req, false);
   next();
 });
 
@@ -336,17 +344,18 @@ server = app.listen(config.port, '0.0.0.0', () => {
 ws_server = new websocket.Server({ server: server, clientTracking: true });
 // WSS connection handling
 ws_server.on('connection', (ws, req) => {
-  console.log(`[${req.socket.remoteAddress}] Client connected`);
+  var real_ip = getRealIp(req, true)
+  console.log(`[${real_ip}] Client connected`);
 
   ws.on('message', (data) => {
-    console.log(`${req.socket.remoteAddress} tried sending data: ${data}`);
+    console.log(`${real_ip} tried sending data: ${data}`);
   });
 
   ws.on('close', (code, reason) => {
-    console.log(`[${req.socket.remoteAddress}] Client disconnected`);
+    console.log(`[${real_ip}] Client disconnected`);
   });
 
   ws.on('error', (err) => {
-    console.log(`[${req.socket.remoteAddress}] error: ${err.message}`);
+    console.log(`[${real_ip}] error: ${err.message}`);
   });
 });
