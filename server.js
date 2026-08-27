@@ -227,7 +227,7 @@ app.post('/api/login', async (req, res) => {
 
   const id = await userdb.getUIDByName(username);
   const user = await userdb.getUser(id)
-  if (!user || !(await bcrypt.compare(password, (new TextDecoder().decode(user.password))))) {
+  if (!user || !(await bcrypt.compare(password, user.password))) {
     console.log("Wrong password");
     return res.send({"error": "Incorrect username or password"});
   }

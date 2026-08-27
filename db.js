@@ -9,7 +9,7 @@ class UserDatabase {
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TINYTEXT,
-        password BINARY(40),
+        password TEXT(40),
         ip TEXT(15)
       );
       CREATE TABLE IF NOT EXISTS bannedusers (
@@ -35,7 +35,7 @@ class UserDatabase {
     return this.db.prepare("SELECT * FROM users WHERE id = ?").get(uid);
   }
   async createUser(username, password) {
-    const hashedPassword = Buffer.from(await bcrypt.hash(password, 10));
+    const hashedPassword = await bcrypt.hash(password, 10);
     return this.db.prepare("INSERT INTO users (username, password, ip) VALUES (?, ?, ?)").run(username, hashedPassword, "x.x.x.x");
   }
   async updateIp(uid, ip) {
