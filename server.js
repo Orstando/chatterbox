@@ -214,6 +214,7 @@ app.post('/api/signup', async (req, res) => {
   await userdb.createUser(username, password);
   const newUserId = await userdb.getUIDByName(username)
   console.log(newUserId)
+  await userdb.updateIp(newUserId, req.real_ip)
   const token = jwt.sign({id: newUserId}, config.token_secret, { expiresIn: '1h' });
   console.log("Account created!");
   return res.status(200).send({"token": token});
@@ -238,6 +239,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(200).send({"error": "Banned", "reason": reason});
   }
 
+  await userdb.updateIp(id, req.real_ip)
   const token = jwt.sign({ id: user.id }, config.token_secret, { expiresIn: '1h' });
   console.log("Client logged in!");
   return res.status(200).send({"token": token});
