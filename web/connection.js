@@ -59,7 +59,7 @@ class Client {
           'User-Agent': this.ua,
           'Authorization': token
         },
-        body: JSON.stringify({"room": room, "content": msg, "platform": platform, "img": img})
+        body: JSON.stringify({"room": room, "content": msg, "platform": platform, "image": img})
     })
     const data = await response.json();
     return data;

@@ -13,6 +13,14 @@ config = {
     "history_limit": 100,
     "message_limit": 1000,
     "using_proxy": false,
-    "proxy_ip_header": "X-Real-IP"
+    "proxy_ip_header": "X-Real-IP",
+    "plugin_config": {
+        "discordrelay": {
+            "token": "",
+            "userid": "1234567890",
+            "room": "general",
+            "channelid": "1234567890"
+        }
+    }
 }
 module.exports = config

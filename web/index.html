@@ -699,13 +699,25 @@
           signup();
         }
       });
-      
+
+      // https://stackoverflow.com/a/18837818
+      async function doesImgExist(imageSrc) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = imageSrc;
+        });
+      }
+      async function getPlatformImage(platform) {
+        return (await doesImgExist("img/plt/"+platform+".png") ? "img/plt/"+platform+".png" : "img/plt/Unknown.png")
+      }
       var client = new Client("ChB-WebClient", url, is_secure);
 
-      client.onMessage = function(data) {
-        console.log("recieved",data)
+      client.onMessage = async function(data) {
+        console.log("recieved", data)
         if (data.room == currentRoom[0]) {
-          appendMsg(data.pfp, data.author.name, data.content, data.platform, data.image);
+          appendMsg(data.author.pfp, data.author.name, data.content, (await getPlatformImage(data.platform)), data.image);
         };
       }
       client.onError = function(error) {
@@ -852,9 +864,9 @@
       }
       async function getHistory() {
         messages = await client.history(token, currentRoom[0]);
-        messages.forEach((message) => {
-          appendMsg(message.pfp, message.author.name, message.content, message.platform, message.image);
-        });
+        for (const message of messages) {
+          appendMsg(message.author.pfp, message.author.name, message.content, (await getPlatformImage(message.platform)), message.image);
+        }
       }
 
       if (!handleToken()) { // disable nav if not signed in

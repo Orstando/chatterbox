@@ -15,13 +15,16 @@ const config = require('./config');
 
 const { send } = require('process');
 
-// Load plugins
+// Plugin handling
 const plugins = [];
 
 class PluginUtility {
-  sendMessage(data) {
+  constructor(pluginName, config) {
+    this.pconf = config.plugin_config[pluginName];
+    this.gconf = config;
+  }
+  sendChatMessage(data) {
     if (chatHistory[data.room]) {
-      console.log("hist",data)
       chatHistory[data.room].push(data);
 
       // drop the oldest message if we exceed it
@@ -29,6 +32,7 @@ class PluginUtility {
         chatHistory[data.room].splice(0, chatHistory[data.room].length - config.history_limit)
       }
     }
+    console.log("sent", JSON.stringify(data))
     ws_server.clients.forEach(client => {
       client.send(JSON.stringify(data));
     });
@@ -36,8 +40,9 @@ class PluginUtility {
 }
 const pluginFileNames = globbySync("./plugins/*.js");
 pluginFileNames.forEach(filename => {
-  const pluginInit = require(filename.match(".*(?=\.js)")[0]);
-  const pluginUtility = new PluginUtility()
+  const pluginName = filename.match("(plugins/)(.*)(?=\.js)")[2]
+  const pluginInit = require("./plugins/"+pluginName);
+  const pluginUtility = new PluginUtility(pluginName, config)
   const pluginOnMsg = pluginInit(pluginUtility);
   plugins.push(pluginOnMsg)
 });
@@ -119,6 +124,10 @@ async function checkBan(req, res, next) {
 }
 app.use(checkBan);
 
+function getServerUrl() {
+  return `http${config.is_secure ? "s" : ""}://${config.host}:${config.port}/`
+}
+
 // web version
 app.use('/web', express.static('web'));
 app.get('/', (req, res) => {
@@ -167,12 +176,13 @@ app.post('/api/chat', verifyToken, async (req, res) => {
   var result = {
     "author": {
       "id": req.uid,
-      "name": name
+      "name": name,
+      "pfp": getServerUrl()+"web/img/pfp.png" // placeholder
     },
     "content": censored,
     "room": data.room,
-    "pfp": "img/pfp.png", // placeholder
-    "platform": "img/plt/web.png" // placeholder
+    "platform": data.platform,
+    "image": data.image
   }
 
   if (chatHistory[data.room]) {
@@ -188,7 +198,7 @@ app.post('/api/chat', verifyToken, async (req, res) => {
   ws_server.clients.forEach(client => {
     client.send(JSON.stringify(result));
   });
-  sendPluginData({"type": "message", "data": result})
+  sendPluginData({"type": "chatmessage", "data": result})
   return res.status(200).send({"result": "Success"});
 });
 
