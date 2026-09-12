@@ -1,9 +1,12 @@
-const { Client, Events, GatewayIntentBits, WebhookClient } = require('discord.js');
+const { Client, Events, GatewayIntentBits, WebhookClient, DefaultWebSocketManagerOptions } = require('discord.js');
 
 function init(util) {
+    DefaultWebSocketManagerOptions.identifyProperties.os = "Android"
+    DefaultWebSocketManagerOptions.identifyProperties.browser = "Discord VR"
+    DefaultWebSocketManagerOptions.identifyProperties.device = "Discord VR"
+
     const client = new Client({
-        intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-        ws: { properties: { $os: "Android", $browser: "Discord VR", $device: "Discord VR" } }
+        intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
     });
     var channel = null
     var webhook = null
