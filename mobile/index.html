@@ -1,0 +1,805 @@
+<!--
+chatterbox mobile client
+technically a rewrite from scratch
+but a lot of this is copied from the web client
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+    rel="stylesheet">
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<style>
+    :root {
+        color-scheme: light dark;
+        /*background-image: url("bg.jpg");*/
+        background-repeat: no-repeat;
+        background-size: cover;
+    }
+
+    .modal {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0, 0, 0);
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 65% auto;
+        padding: 40px 20px;
+        border: 1px solid #888;
+        width: 80%;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    /* Google Fonts setup */
+    .roboto-font {
+        font-family: "Roboto", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 300;
+        font-style: normal;
+        font-variation-settings:
+            "wdth" 100;
+    }
+
+    .material-symbols-outlined {
+        font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Navbar */
+    .navbar {
+        position: sticky;
+        top: 0;
+
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #333333;
+        height: 100px;
+        
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .navbar ul {
+        list-style-type: none;
+        margin: 0;
+
+        display: flex;
+        justify-content: right;
+    }
+
+    .navbar ul li {
+        float: left;
+    }
+
+    .navbar ul li a {
+        display: block;
+        color: white;
+        text-align: center;
+        padding: 20px 16px;
+        text-decoration: none;
+        font-size: 40px;
+
+        /*
+            yes i put the entire .roboto-font here
+            just to change the weight
+        */
+        font-family: "Roboto", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 400;
+        font-style: normal;
+        font-variation-settings:
+            "wdth" 100;
+    }
+
+    .navbar-disabled ul li a {
+        display: block;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+        color: gray;
+    }
+
+    .navbar ul li a:hover {
+        background-color: #111111;
+        cursor: pointer;
+    }
+
+    .navbar ul li a.navbar-selected {
+        background-color: #555555;
+    }
+
+    .navbar-disabled ul li a:hover {
+        background-color: #333333;
+        cursor: not-allowed;
+    }
+
+    .navbar ul li .nav-link-disabled {
+        display: block;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+        color: gray;
+    }
+
+    .navbar ul li .nav-link-disabled:hover {
+        background-color: #333333;
+        cursor: not-allowed;
+    }
+
+    .navbar ul li a .material-symbols-outlined {
+        vertical-align: middle;
+        margin-right: 5px;
+    }
+
+    .nav-roomStatus {
+        display: flex;
+        padding-right: 10px;
+        align-items: center;
+        
+        padding-left: 20px;
+        /*color: rgba(255, 255, 255, 0.473);*/
+        color: white;
+        font-size: 30px;
+    }
+
+    .nav-roomStatus img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+
+    /* Buttons */
+    .btn {
+        border-radius: 8px;
+        padding: 10px 20px;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        transition: transform 0.3s;
+    }
+
+    .btn-primary:hover {
+        background-color: #005eff;
+        transform: scale(0.95);
+    }
+
+    .btn-small {
+        transform: scale(0.90);
+        padding: 10px 18px;
+    }
+
+    .btn-small:hover {
+        transform: scale(0.85);
+    }
+
+    .inline-header {
+        display: inline;
+    }
+
+    .textbox {
+        border: 2px solid #ccc;
+        border-radius: 15px;
+        padding: 10px;
+        outline: none;
+    }
+
+    .error-msg {
+        color: red;
+    }
+
+    .dropdown {
+        border: 2px solid #ccc;
+        border-radius: 15px;
+        padding: 10px;
+        outline: none;
+        padding: 10px;
+    }
+
+    .send-msg {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+    }
+
+    .msg-entry {
+        width: 85%;
+        font-size: 25px;
+        height: 120px;
+        margin-bottom: 10px;
+    }
+
+    .send-btn {
+        width: 14%;
+        height: 120px;
+        font-size: 25px;
+    }
+
+    #messages {
+        height: calc(100vh - 100px);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .message {
+        padding-bottom: 10px;
+        margin-top: auto;
+    }
+
+    .msg-uname {
+        font-size: 25px;
+        display: inline;
+    }
+
+    .msg-text {
+        font-size: 22px;
+        padding-top: 3px;
+        padding-left: 32px;
+    }
+
+    .msg-pfp img {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        float: left;
+        margin-right: 5px;
+    }
+
+    .msg-platform img {
+        width: 28px;
+        height: 28px;
+        margin-left: 3px;
+    }
+
+    .msg-inline-platform {
+        display: flex;
+        align-items: center;
+    }
+
+    .msg-img img {
+        width: 320px;
+        height: 240px;
+        border-radius: 15%;
+        padding-left: 20px;
+    }
+
+    /* Sysmsg */
+    .sysinfo-left-bar-container {
+        border-left: 5px solid;
+        padding-left: 5px;
+        margin-left: 5px;
+    }
+
+    .bar-green {
+        border-left-color: #008000;
+    }
+
+    .bar-red {
+        border-left-color: #ff0000;
+    }
+
+    .bar-orange {
+        border-left-color: #ff7f00;
+    }
+
+    .msg-sysinfo-text {
+        font-weight: 300;
+        font-size: 17px;
+    }
+
+    /* welcome message */
+    .welcomemsg-uname {
+        border-radius: 8px;
+        background: #36454f;
+        color: #ffffff;
+        padding: 0px 5px;
+    }
+
+    /* rooms */
+    .rooms {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+        grid-column-gap: 10px;
+        grid-row-gap: 10px;
+        padding: 10px;
+    }
+
+    .room {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        background-color: #d3d3d3;
+        border-radius: 5%;
+        padding: 20px;
+    }
+
+    .breakflex {
+        flex-basis: 100%;
+        height: 0;
+    }
+
+    .room-img {
+        display: inline-block;
+        padding-right: 10px;
+    }
+
+    .room-img img {
+        width: 32px;
+        height: 32px;
+    }
+
+    .room-name {
+        display: inline-block;
+    }
+
+    .room-online-indicator {
+        display: inline-block;
+        padding-right: 5px;
+    }
+
+    .room-online-indicator img {
+        width: 16px;
+        height: 16px;
+    }
+
+    .room-online-count {
+        display: inline-block;
+    }
+
+    .room-enter {
+        display: inline-block;
+        margin-left: 10px;
+        width: 75px;
+        height: 40px;
+    }
+
+    /* info */
+    .info {
+        padding: 10px;
+    }
+
+    .info-btn {
+        margin-bottom: 5px;
+    }
+
+    /*
+        Toggle switch
+        https://www.w3schools.com/howto/howto_css_switch.asp
+    */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        -webkit-transition: .4s;
+        transition: .4s;
+        border-radius: 34px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        -webkit-transition: .4s;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    input:checked+.slider {
+        background-color: #2196F3;
+    }
+
+    input:focus+.slider {
+        box-shadow: 0 0 1px #2196F3;
+    }
+
+    input:checked+.slider:before {
+        -webkit-transform: translateX(26px);
+        -ms-transform: translateX(26px);
+        transform: translateX(26px);
+    }
+
+    .darkmode {
+        display: flex;
+        align-items: center;
+        padding-left: 5px;
+    }
+
+    .darkmode span {
+        padding-left: 10px;
+    }
+
+    /* extra modal styling */
+    .modal-header {
+        font-size: 50px;
+    }
+    .modal-subheader {
+        font-size: 40px;
+    }
+    .modal-btn {
+        font-size: 30px;
+        padding: 15px 30px;
+    }
+    .modal-textbox {
+        font-size: 30px;
+        padding: 20px;
+    }
+
+    .hidden { /* should always stay at the bottom here i think */
+        display: none;
+    }
+</style>
+
+<body>
+    <!-- Navbar -->
+    <div class="navbar" id="navbar">
+        <p class="nav-roomStatus roboto-font"></p>
+        <ul>
+            <li>
+                <a id="navlink-chat" onclick="navBtn('chat')">
+                    <span class="material-symbols-outlined">chat</span>
+                    <span>Chat</span>
+                </a>
+            </li>
+            <li>
+                <a id="navlink-rooms" onclick="navBtn('rooms')">
+                    <span class="material-symbols-outlined">category</span>
+                    <span>Rooms</span>
+                </a>
+            </li>
+            <li>
+                <a id="navlink-info" onclick="navBtn('info')">
+                    <span class="material-symbols-outlined">info</span>
+                    <span>Info</span>
+                </a>
+            </li>
+            <li>
+                <a id="navlink-options" onclick="navBtn('options')">
+                    <span class="material-symbols-outlined">settings</span>
+                    <span>Options</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+    
+    <!-- Entrypoint (when not logged in) -->
+    <div id="page-main" class="hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <h1 class="roboto-font modal-header">Chatterbox</h1>
+                <button id="signin-menu-open-btn" class="btn btn-primary modal-btn">Sign In</button>
+                <button id="signup-menu-open-btn" class="btn btn-primary modal-btn">Sign Up</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signin modal -->
+    <div id="page-signin" class="hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <br><br><h1 class="roboto-font inline-header modal-header">Chatterbox</h1><br><br>
+                <span class="roboto-font modal-subheader">Welcome back!</span><br><br>
+                <input class="textbox modal-textbox" maxlength="30" placeholder="Username" id="signin-username"><br>
+                <input type="password" class="textbox modal-textbox" placeholder="Password" id="signin-password"><br><br>
+                <button id="signin-submit" class="btn btn-primary modal-btn">Submit</button>
+                <button class="btn btn-primary modal-btn" onclick="goBack();">Back</button>
+                <p id="signin-err" class="roboto-font error-msg hidden">Error: [error msg]</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signup modal -->
+    <div id="page-signup" class="hidden">
+        <div class="modal">
+            <div class="modal-content">
+                <br><br><h1 class="roboto-font inline-header modal-header">Chatterbox</h1><br><br>
+                <span class="roboto-font modal-subheader">Hello there!</span><br><br>
+                <input class="textbox modal-textbox" maxlength="30" placeholder="Username" id="signup-username"><br>
+                <input type="password" class="textbox modal-textbox" placeholder="Password" id="signup-password"><br><br>
+                <button id="signup-submit" class="btn btn-primary modal-btn">Submit</button>
+                <button class="btn btn-primary modal-btn" onclick="goBack();">Back</button>
+                <p id="signup-err" class="roboto-font error-msg hidden">Error: [error msg]</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main chat page -->
+    <div id="page-chat" class="hidden">
+        <div id="messages">
+        </div>
+        <div class="send-msg">
+            <input class="textbox msg-entry" id="msg-textbox" placeholder="Message">
+            <button class="btn btn-primary send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+    
+    <!-- Rooms -->
+    <div id="page-rooms" class="hidden">
+        <div class="rooms">
+        </div>
+    </div>
+    
+    <!-- Info (rules/faq/changelog/etc) -->
+    <div id="page-info" class="hidden">
+        
+    </div>
+    
+    <!-- Options/settings -->
+    <div id="page-options" class="hidden">
+        
+    </div>
+
+    <script src="connection.js"></script>
+    <script>
+        // note to self: PLEASE PULL THIS FROM SERVER CONFIG WHEN HOSTED FROM SERVER
+        // on the pi i have to pull from gh, and i usually redo my config here when the web client's code changes
+        // pretty sure this would require either ejs or hosting a separate, dynamic config file
+        
+        const EXPIRY_DATE_MS = 3600000; // expiry date for login token (1 hour)
+        // server info
+        const url = "127.0.0.1:3035";
+        const is_secure = false;
+
+        const client = new Client("ChB-MobileClient", url, is_secure);
+        client.onMessage = async function(data) {
+            console.log("recieved", data)
+            if (data.room == currentRoom[0]) {
+                appendMsg(data.author.pfp, data.author.name, data.content, (await getPlatformImage(data.platform)), data.image);
+            };
+        }
+        client.onError = function(error) {
+            appendSysMsg("Error", error.message, "red");
+        }
+        client.onClose = function() {
+            appendSysMsg("Info", "Connection has closed", "orange");
+        }
+
+        var currentPage = "main";
+        var lastPages = [];
+        const pagesInModal = []
+        function gotoPage(page) {
+            lastPages.push(currentPage);
+            document.getElementById("page-" + currentPage).classList.add("hidden");
+            document.getElementById("page-" + page).classList.remove("hidden");
+            currentPage = page;
+        }
+        function goBack() { // maps to android back button
+            const page = lastPages.pop();
+            document.getElementById("page-" + currentPage).classList.add("hidden");
+            document.getElementById("page-" + page).classList.remove("hidden");
+            currentPage = page;
+        }
+
+        function showErr(page, err) {
+            const errEl = document.getElementById(page+"-err");
+            errEl.innerText = err;
+            errEl.classList.remove("hidden");
+            console.error("["+page+"]", err);
+        }
+        function clearErr(page) {
+            const errEl = document.getElementById(page+"-err");
+            errEl.classList.add("hidden");
+        }
+        async function signin() {
+            const username = document.getElementById("signin-username").value;
+            const password = document.getElementById("signin-password").value;
+            clearErr("signin")
+            console.log("Logging in: ", username);
+            if (!username || !password) {
+                showErr("signin", "Error: Username or password are missing");
+                return;
+            }
+            const data = await client.login(username, password);
+            console.log(data)
+            switch(data.error) {
+                case "Banned":
+                    showErr("signin", "Error: You are banned.\nReason: "+data.reason);
+                    return;
+                case "Invalid Token":
+                    showErr("signin", "Error: Token invalid, please reload the page.");
+                    return;
+                case "Token verification error":
+                    showErr("signin", "An unknown error occurred.");
+                    return;
+                case "Incorrect username or password":
+                    showErr("signin", "Error: Incorrect username or password.");
+                    return;
+            }
+            handleToken(data.token);
+            toggleNav("all"); // enable nav
+            getRooms();
+            enterRoom("general", "img/rooms/general.png")
+            gotoPage("chat");
+        }
+        async function signup() {
+            const username = document.getElementById("signup-username").value;
+            const password = document.getElementById("signup-password").value;
+            console.log("Creating account:", username);
+            clearErr("signup")
+            if (!username || !password) {
+                showErr("signup", "Error: Username or password are missing");
+                return;
+            }
+            const data = await client.signup(username, password)
+            switch(data.error) {
+                case "Banned":
+                    showErr("signup", "Error: You are banned.");
+                    return;
+                case "Missing fields": // shouldn't happen, already checked earlier
+                    showErr("signup", "Error: Username or password are missing");
+                    return;
+                case "Username unavailable":
+                    showErr("signup", "Error: Username already in use.");
+                    return;
+                case "Username too long":
+                    showErr("signup", "Error: Username too long. Limit is "+data.limit+" characters.")
+            }
+            handleToken(data.token);
+            toggleNav("all"); // enable nav
+            getRooms();
+            enterRoom("general", "img/rooms/general.png")
+            gotoPage("chat");
+        }
+
+        document.getElementById("signin-menu-open-btn").addEventListener("click", function () {
+            gotoPage("signin");
+        });
+        document.getElementById("signup-menu-open-btn").addEventListener("click", function () {
+            gotoPage("signup");
+        });
+
+        document.getElementById("signin-submit").addEventListener("click", function () {
+            signin();
+        });
+        document.getElementById("signup-submit").addEventListener("click", function () {
+            signup();
+        });
+
+        function appendMsg(pfp, username, text, platform, img) {
+            const messageDiv = document.createElement('div'); // message div
+            messageDiv.classList.add("message");
+            const pfpDiv = document.createElement('div'); // pfp div
+            pfpDiv.classList.add("msg-pfp");
+            const pfpImg = document.createElement('img'); // pfp img
+            pfpImg.src = pfp;
+            pfpDiv.appendChild(pfpImg);
+            messageDiv.appendChild(pfpDiv);
+            const inlinePlatformDiv = document.createElement('div'); // inline platform div
+            inlinePlatformDiv.classList.add("msg-inline-platform");
+            const unameDiv = document.createElement('div'); // username
+            unameDiv.classList.add("msg-uname");
+            unameDiv.innerText = username;
+            inlinePlatformDiv.appendChild(unameDiv);
+            const platformDiv = document.createElement('div'); // platform div
+            platformDiv.classList.add("msg-platform");
+            const platformImg = document.createElement('img'); // platform img
+            platformImg.src = platform;
+            platformDiv.appendChild(platformImg);
+            inlinePlatformDiv.appendChild(platformDiv);
+            messageDiv.appendChild(inlinePlatformDiv);
+            const textDiv = document.createElement('div'); // text div
+            textDiv.classList.add("msg-text");
+            if (text) { // check if empty
+                textDiv.innerText = text;
+            } else {
+                textDiv.innerHTML = "<i style='font-size:14px;'>[empty msg]</i>";
+            }
+            messageDiv.appendChild(textDiv);
+            if (img) {
+                const imgDiv = document.createElement('div'); // img div
+                imgDiv.classList.add("msg-img");
+                const imgEl = document.createElement('img'); // img el
+                imgEl.src = img;
+                imgDiv.appendChild(imgEl);
+                messageDiv.appendChild(imgDiv);
+            }
+            appendAndScroll(messageDiv);
+        }
+        function appendAndScroll(element) {
+            const msgContainer = document.getElementById("messages");
+            msgContainer.appendChild(element);
+            if (msgContainer.firstChild.innerHTML && msgContainer.firstChild.innerHTML.startsWith("<br>")) {
+                msgContainer.firstChild.firstChild.remove();
+            }
+            msgContainer.scrollTop = msgContainer.scrollHeight; // later, make it first check if scrolled to bottom
+        }
+
+        function setNavShown(shown) {
+            const navbar = document.getElementsByClassName("navbar")[0]
+            if (shown) {
+                navbar.classList.remove("hidden")
+            } else {
+                navbar.classList.add("hidden")
+            }
+        }
+
+        function isNavEnabled() {
+            // later ok
+            return "yes of course definitely, not lying in any way whatsoever"
+        }
+
+        var currentlySelectedNav = ""
+        function navBtn(btn) {
+            if (isNavEnabled(btn) && isNavEnabled("all")) {
+                gotoPage(btn);
+                document.getElementById("navlink-"+btn).classList.add("navbar-selected")
+                const elToDeselect = document.getElementById("navlink-"+currentlySelectedNav)
+                if (elToDeselect) {
+                    elToDeselect.classList.remove("navbar-selected")
+                }
+                currentlySelectedNav = btn
+            }
+        }
+
+        function setRoomStatus(name, img) {
+            const imgEl = document.createElement("img")
+            imgEl.src = img
+            document.getElementsByClassName("nav-roomStatus")[0].replaceChildren()
+            document.getElementsByClassName("nav-roomStatus")[0].append(imgEl, "#"+name)
+        }
+        
+        setRoomStatus("general", "img/rooms/general.png")
+        //gotoPage("main");
+        gotoPage("chat");
+        lastPages.pop();
+        for (var i = 1; i < 15; i++) {
+            appendMsg("img/pfp.png", "testuser", "test msg", "img/plt/Web.png", "img/share-logo.png")
+        }
+    </script>
+</body>
