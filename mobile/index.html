@@ -168,6 +168,8 @@ but a lot of this is copied from the web client
         /*color: rgba(255, 255, 255, 0.473);*/
         color: white;
         font-size: 30px;
+
+        width: 165px;
     }
 
     .nav-roomStatus img {
@@ -254,6 +256,8 @@ but a lot of this is copied from the web client
         display: flex;
         flex-direction: column;
         min-height: 0;
+
+        padding-bottom: 130px;
     }
 
     .message {
@@ -300,9 +304,9 @@ but a lot of this is copied from the web client
 
     /* Sysmsg */
     .sysinfo-left-bar-container {
-        border-left: 5px solid;
-        padding-left: 5px;
-        margin-left: 5px;
+        border-left: 10px solid;
+        padding-left: 10px;
+        margin-left: 10px;
     }
 
     .bar-green {
@@ -319,24 +323,29 @@ but a lot of this is copied from the web client
 
     .msg-sysinfo-text {
         font-weight: 300;
-        font-size: 17px;
+        font-size: 25px;
+    }
+
+    .msg-sysinfo-title {
+        font-weight: 300;
+        font-size: 30px;
     }
 
     /* welcome message */
     .welcomemsg-uname {
-        border-radius: 8px;
+        border-radius: 15px;
         background: #36454f;
         color: #ffffff;
-        padding: 0px 5px;
+        padding: 0px 15px;
     }
 
     /* rooms */
     .rooms {
-        display: grid;
+        /*display: grid;
         grid-template-columns: repeat(6, 1fr);
         grid-template-rows: repeat(2, 1fr);
         grid-column-gap: 10px;
-        grid-row-gap: 10px;
+        grid-row-gap: 10px;*/
         padding: 10px;
     }
 
@@ -344,9 +353,8 @@ but a lot of this is copied from the web client
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        background-color: #d3d3d3;
         border-radius: 5%;
-        padding: 20px;
+        padding: 5px;
     }
 
     .breakflex {
@@ -366,27 +374,31 @@ but a lot of this is copied from the web client
 
     .room-name {
         display: inline-block;
+        font-size: 30px;
     }
 
     .room-online-indicator {
-        display: inline-block;
         padding-right: 5px;
+
+        float: right;
+        margin-left: auto;
     }
 
     .room-online-indicator img {
-        width: 16px;
-        height: 16px;
+        width: 20px; /* yeah this is a weird size but i like it */
+        height: 20px;
     }
 
     .room-online-count {
         display: inline-block;
+        font-size: 30px;
     }
 
-    .room-enter {
-        display: inline-block;
-        margin-left: 10px;
-        width: 75px;
-        height: 40px;
+    .room:hover {
+        background-color: #c2c2c2;
+    }
+    .room.room-selected {
+        background-color: #b1b1b1;
     }
 
     /* info */
@@ -436,8 +448,6 @@ but a lot of this is copied from the web client
         left: 4px;
         bottom: 4px;
         background-color: white;
-        -webkit-transition: .4s;
-        transition: .4s;
         border-radius: 50%;
     }
 
@@ -455,14 +465,19 @@ but a lot of this is copied from the web client
         transform: translateX(26px);
     }
 
+    #page-options {
+        margin-top: 10px;
+    }
+
     .darkmode {
         display: flex;
         align-items: center;
-        padding-left: 5px;
+        margin-left: 10px;
     }
 
     .darkmode span {
         padding-left: 10px;
+        font-size: 25px;
     }
 
     /* extra modal styling */
@@ -582,7 +597,13 @@ but a lot of this is copied from the web client
     
     <!-- Options/settings -->
     <div id="page-options" class="hidden">
-        
+        <div class="darkmode">
+            <label class="switch">
+                <input type="checkbox">
+                <span class="slider round"></span>
+            </label>
+            <span class="roboto-font">Dark Mode</span>
+        </div>
     </div>
 
     <script src="connection.js"></script>
@@ -751,13 +772,61 @@ but a lot of this is copied from the web client
             }
             appendAndScroll(messageDiv);
         }
+        function getSysMsgElement(barColor) {
+            const messageDiv = document.createElement('div'); // message div
+            messageDiv.classList.add("message", "system-info");
+            const titleDiv = document.createElement('div'); // title div
+            titleDiv.classList.add("msg-sysinfo-title");
+            const textDiv = document.createElement('div'); // text div
+            textDiv.classList.add("msg-sysinfo-text", "roboto-font");
+            if (barColor) { // append title+text to barDiv instead
+                const barDiv = document.createElement('div');
+                barDiv.classList.add("sysinfo-left-bar-container", "bar-"+barColor);
+                barDiv.appendChild(titleDiv);
+                barDiv.appendChild(textDiv);
+                messageDiv.appendChild(barDiv);
+            } else {
+                messageDiv.appendChild(titleDiv);
+                messageDiv.appendChild(textDiv);
+            }
+            return messageDiv;
+        }
+        function appendSysMsg(title, text, barColor) { // barColor can also be null, meaning no bar
+            messageDiv = getSysMsgElement(barColor);
+            titleDiv = messageDiv.querySelector(".msg-sysinfo-title");
+            titleDiv.innerText = title;
+            textDiv = messageDiv.querySelector(".msg-sysinfo-text");
+            textDiv.innerText = text;
+
+            appendAndScroll(messageDiv);
+        }
+        function appendWelcomeMsg(username) { // pretty much the same as appendSysMsg() but with a <span> for username
+            messageDiv = getSysMsgElement("green");
+            titleDiv = messageDiv.querySelector(".msg-sysinfo-title");
+
+            const unameSpan = document.createElement('span');
+            unameSpan.classList.add("welcomemsg-uname");
+            unameSpan.innerText = username;
+
+            titleDiv.append(unameSpan, "  has joined the chat.");
+            textDiv = messageDiv.querySelector(".msg-sysinfo-text");
+            textDiv.classList.add("roboto-font");
+            textDiv.innerText = "Everyone say hi!";
+
+            appendAndScroll(messageDiv);
+        }
+        // BUG: doesnt scroll all the say down
+        function scrollToBottom() {
+            const msgContainer = document.getElementById("messages");
+            msgContainer.scrollTop = msgContainer.scrollHeight // later, make it first check if scrolled to bottom
+        }
         function appendAndScroll(element) {
             const msgContainer = document.getElementById("messages");
             msgContainer.appendChild(element);
             if (msgContainer.firstChild.innerHTML && msgContainer.firstChild.innerHTML.startsWith("<br>")) {
                 msgContainer.firstChild.firstChild.remove();
             }
-            msgContainer.scrollTop = msgContainer.scrollHeight; // later, make it first check if scrolled to bottom
+            scrollToBottom();
         }
 
         function setNavShown(shown) {
@@ -770,7 +839,7 @@ but a lot of this is copied from the web client
         }
 
         function isNavEnabled() {
-            // later ok
+            // ill do it later okay
             return "yes of course definitely, not lying in any way whatsoever"
         }
 
@@ -784,6 +853,9 @@ but a lot of this is copied from the web client
                     elToDeselect.classList.remove("navbar-selected")
                 }
                 currentlySelectedNav = btn
+                if (btn == "chat") {
+                    scrollToBottom();
+                }
             }
         }
 
@@ -794,12 +866,64 @@ but a lot of this is copied from the web client
             document.getElementsByClassName("nav-roomStatus")[0].append(imgEl, "#"+name)
         }
         
-        setRoomStatus("general", "img/rooms/general.png")
+        function appendRoom(icon, name, onlineCount) {
+            const roomDiv = document.createElement('div'); // room div
+            roomDiv.classList.add("room");
+            const imgDiv = document.createElement('div'); // room img div
+            imgDiv.classList.add("room-img");
+            const imgEl = document.createElement('img'); // room img
+            imgEl.src = icon;
+            imgDiv.appendChild(imgEl);
+            roomDiv.appendChild(imgDiv);
+            const nameDiv = document.createElement('div'); // room name div
+            nameDiv.classList.add("room-name");
+            nameDiv.innerText = "#"+name;
+            roomDiv.appendChild(nameDiv);
+            //const breakFlexDiv = document.createElement('div'); // breakflex div
+            //breakFlexDiv.classList.add("breakflex");
+            //roomDiv.appendChild(breakFlexDiv);
+            const onlineIndicatorDiv = document.createElement('div'); // online indicator div
+            onlineIndicatorDiv.classList.add("room-online-indicator");
+            const onlineIndicatorImg = document.createElement('img'); // online indicator img
+            if (onlineCount) {
+                onlineIndicatorImg.src = "img/online/green.png";
+            } else {
+                onlineIndicatorImg.src = "img/online/red.png";
+            }
+            onlineIndicatorDiv.appendChild(onlineIndicatorImg);
+            roomDiv.appendChild(onlineIndicatorDiv);
+            const onlineCountDiv = document.createElement('div'); // online count div
+            onlineCountDiv.classList.add("room-online-count");
+            onlineCountDiv.innerText = onlineCount.toString();
+            roomDiv.appendChild(onlineCountDiv);
+            roomDiv.addEventListener("click", function(event) { // do stuff on room click
+                enterRoom(this, name, icon);
+            });
+            document.getElementsByClassName("rooms")[0].appendChild(roomDiv);
+        }
+        var selectedRoomDiv = null;
+        var currentRoom = null;
+        function enterRoom(roomDiv, name, icon) {
+            setRoomStatus(name, icon);
+            currentRoom = [name, icon];
+            roomDiv.classList.add("room-selected")
+            if (selectedRoomDiv) {
+                selectedRoomDiv.classList.remove("room-selected")
+            }
+            selectedRoomDiv = roomDiv
+        }
+
+        setRoomStatus("general", "img/rooms/general.png");
         //gotoPage("main");
-        gotoPage("chat");
+        navBtn("rooms");
         lastPages.pop();
         for (var i = 1; i < 15; i++) {
             appendMsg("img/pfp.png", "testuser", "test msg", "img/plt/Web.png", "img/share-logo.png")
         }
+        appendSysMsg("title", "text", "red");
+        appendWelcomeMsg("orstando");
+
+        appendRoom("img/rooms/general.png", "general", 1);
+        appendRoom("img/rooms/testing channel.png", "testing channel", 999999999)
     </script>
 </body>
