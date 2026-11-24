@@ -788,7 +788,7 @@
         handleToken(data.token);
         toggleNav("all"); // enable nav
         getRooms();
-        enterRoom("general", "https://placehold.co/64?text=g")
+        enterRoom("general", "img/rooms/general.png")
         gotoPage("chat");
       }
       
@@ -822,7 +822,7 @@
         handleToken(data.token);
         toggleNav("all"); // enable nav
         getRooms();
-        enterRoom("general", "https://placehold.co/64?text=g")
+        enterRoom("general", "img/rooms/general.png")
         gotoPage("chat");
       }
       currentRoom = null;
@@ -858,7 +858,7 @@
         data = await client.rooms(token);
         data.forEach(async (item) => {
           online = await client.online(token, item[0]);
-          appendRoom("https://placehold.co/64?text="+item[0], item, online)
+          appendRoom("img/rooms/"+item[0]+".png", item, online)
         })
         return data;
       }
@@ -873,7 +873,7 @@
         toggleNav("all");
       } else {
         getRooms();
-        enterRoom("general", "https://placehold.co/64?text=g")
+        enterRoom("general", "img/rooms/general.png")
         gotoPage("chat");
       }
     </script>

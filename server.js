@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { globbySync } = require('globby');
+const mobile = require('is-mobile');
 
 const censor = require('./censor');
 const admin = require("./admin");
@@ -16,6 +17,9 @@ const config = require('./config');
 const { send } = require('process');
 
 // Plugin handling
+// I really need to make this more than the equivalent of a bot
+// I want to add the ability to append html to the end of the web client, among other things
+
 const plugins = [];
 
 class PluginUtility {
@@ -128,10 +132,15 @@ function getServerUrl() {
   return `http${config.is_secure ? "s" : ""}://${config.host}:${config.port}/`
 }
 
-// web version
+// web and mobile clients
 app.use('/web', express.static('web'));
+app.use('/mobile', express.static('mobile'));
 app.get('/', (req, res) => {
-  return res.redirect("/web");
+  if (mobile(req)) {
+    return res.redirect("/mobile");
+  } else {
+    return res.redirect("/web")
+  }
 })
 
 // Unused, simple API test
