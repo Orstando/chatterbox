@@ -403,11 +403,14 @@ but a lot of this is copied from the web client
 
     /* info */
     .info {
-        padding: 10px;
+        margin: 20px;
     }
 
     .info-btn {
         margin-bottom: 5px;
+        font-size: 25px;
+        padding: 20px;
+        border-radius: 10%;
     }
 
     /*
@@ -592,7 +595,11 @@ but a lot of this is copied from the web client
     
     <!-- Info (rules/faq/changelog/etc) -->
     <div id="page-info" class="hidden">
-        
+        <div class="info">
+            <button class="btn btn-primary info-btn" onclick="showInfo('Rules');">Rules</button><br>
+            <button class="btn btn-primary info-btn" onclick="showInfo('FAQ');">FAQ</button><br>
+            <button class="btn btn-primary info-btn" onclick="showInfo('Changelog')">Changelog</button><br>
+        </div>
     </div>
     
     <!-- Options/settings -->
@@ -911,6 +918,13 @@ but a lot of this is copied from the web client
                 selectedRoomDiv.classList.remove("room-selected")
             }
             selectedRoomDiv = roomDiv
+        }
+
+        function showInfo(type) {
+            
+        }
+        function infoBack() {
+
         }
 
         setRoomStatus("general", "img/rooms/general.png");
