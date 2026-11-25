@@ -4,8 +4,14 @@ technically a rewrite from scratch
 but a lot of this is copied from the web client
 -->
 
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
+<script>
+    (function () {
+        var src = 'eruda.js';
+        if (!/eruda=true/.test(window.location) && localStorage.getItem('active-eruda') != 'true') return;
+        document.write('<scr' + 'ipt src="' + src + '"></scr' + 'ipt>');
+        document.write('<scr' + 'ipt>eruda.init();eruda.scale(3);</scr' + 'ipt>');
+    })();
+</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +22,9 @@ but a lot of this is copied from the web client
 <style>
     :root {
         color-scheme: light dark;
-        /*background-image: url("bg.jpg");*/
+    }
+    .modalbg {
+        background-image: url("bg.jpg");
         background-repeat: no-repeat;
         background-size: cover;
     }
@@ -402,7 +410,10 @@ but a lot of this is copied from the web client
     }
 
     /* info */
-    .info {
+    #page-info {
+        margin: 20px;
+    }
+    #page-infoContents {
         margin: 20px;
     }
 
@@ -413,15 +424,26 @@ but a lot of this is copied from the web client
         border-radius: 10%;
     }
 
+    .info-header {
+        font-size: 60px;
+    }
+    .info-content {
+        font-size: 40px;
+    }
+    .info-back { /* not very "small" anymore huh */
+        font-size: 40px;
+        padding: 20px 28px;
+    }
+
     /*
         Toggle switch
-        https://www.w3schools.com/howto/howto_css_switch.asp
+        Credit: https://www.w3schools.com/howto/howto_css_switch.asp
     */
     .switch {
         position: relative;
         display: inline-block;
-        width: 60px;
-        height: 34px;
+        width: 90px;
+        height: 54px;
     }
 
     .switch input {
@@ -438,7 +460,6 @@ but a lot of this is copied from the web client
         right: 0;
         bottom: 0;
         background-color: #ccc;
-        -webkit-transition: .4s;
         transition: .4s;
         border-radius: 34px;
     }
@@ -446,8 +467,8 @@ but a lot of this is copied from the web client
     .slider:before {
         position: absolute;
         content: "";
-        height: 26px;
-        width: 26px;
+        height: 46px;
+        width: 46px;
         left: 4px;
         bottom: 4px;
         background-color: white;
@@ -463,24 +484,22 @@ but a lot of this is copied from the web client
     }
 
     input:checked+.slider:before {
-        -webkit-transform: translateX(26px);
-        -ms-transform: translateX(26px);
-        transform: translateX(26px);
+        transform: translateX(36px);
     }
 
     #page-options {
         margin-top: 10px;
     }
 
-    .darkmode {
+    .option-switch {
         display: flex;
         align-items: center;
         margin-left: 10px;
     }
 
-    .darkmode span {
+    .option-switch span {
         padding-left: 10px;
-        font-size: 25px;
+        font-size: 40px;
     }
 
     /* extra modal styling */
@@ -595,21 +614,29 @@ but a lot of this is copied from the web client
     
     <!-- Info (rules/faq/changelog/etc) -->
     <div id="page-info" class="hidden">
-        <div class="info">
-            <button class="btn btn-primary info-btn" onclick="showInfo('Rules');">Rules</button><br>
-            <button class="btn btn-primary info-btn" onclick="showInfo('FAQ');">FAQ</button><br>
-            <button class="btn btn-primary info-btn" onclick="showInfo('Changelog')">Changelog</button><br>
-        </div>
+        <button class="btn btn-primary info-btn" onclick="showInfo('Rules');">Rules</button><br>
+        <button class="btn btn-primary info-btn" onclick="showInfo('FAQ');">FAQ</button><br>
+        <button class="btn btn-primary info-btn" onclick="showInfo('Changelog')">Changelog</button><br>
+    </div>
+    <div id="page-infoContents" class="hidden">
+
     </div>
     
     <!-- Options/settings -->
     <div id="page-options" class="hidden">
-        <div class="darkmode">
+        <div class="option-switch">
             <label class="switch">
                 <input type="checkbox">
                 <span class="slider round"></span>
             </label>
             <span class="roboto-font">Dark Mode</span>
+        </div>
+        <div class="option-switch">
+            <label class="switch">
+                <input type="checkbox" onclick="devtoolsOption(this.checked);">
+                <span class="slider round"></span>
+            </label>
+            <span class="roboto-font">Devtools</span>
         </div>
     </div>
 
@@ -621,7 +648,8 @@ but a lot of this is copied from the web client
         
         const EXPIRY_DATE_MS = 3600000; // expiry date for login token (1 hour)
         // server info
-        const url = "127.0.0.1:3035";
+        //const url = "127.0.0.1:3035";
+        const url = "orstando-lpc:3035"
         const is_secure = false;
 
         const client = new Client("ChB-MobileClient", url, is_secure);
@@ -921,23 +949,40 @@ but a lot of this is copied from the web client
         }
 
         function showInfo(type) {
-            
+            newDiv = document.createElement("div");
+            newDiv.innerHTML = "Loading..."
+            client.info(token, type.toLowerCase())
+                .then((data) => {
+                    newDiv.innerHTML =
+                    "<h1 class='roboto-font inline-header info-header'>" + type + "</h1><br><p class='info-content'>"
+                    + data.replaceAll("\n", "<br>")
+                    + `</p><br><button class="btn btn-primary info-back" onclick="infoBack()">Back</button>`;
+            })
+            const infoContents = document.getElementById("page-infoContents");
+            infoContents.replaceChildren(newDiv);
+            gotoPage("infoContents") // using gotoPage here so that back button works
         }
         function infoBack() {
-
+            gotoPage("info")
         }
 
-        setRoomStatus("general", "img/rooms/general.png");
-        //gotoPage("main");
-        navBtn("rooms");
+        function devtoolsOption(state) {
+            localStorage.setItem("active-eruda", state.toString())
+        }
+
+        //setRoomStatus("general", "img/rooms/general.png");
+        document.body.classList.add("modalbg")
+        setNavShown(false)
+        gotoPage("main");
+        //navBtn("chat");
         lastPages.pop();
-        for (var i = 1; i < 15; i++) {
-            appendMsg("img/pfp.png", "testuser", "test msg", "img/plt/Web.png", "img/share-logo.png")
-        }
-        appendSysMsg("title", "text", "red");
-        appendWelcomeMsg("orstando");
+        //for (var i = 1; i < 15; i++) {
+        //    appendMsg("img/pfp.png", "testuser", "test msg", "img/plt/Web.png", "img/share-logo.png")
+        //}
+        //appendSysMsg("title", "text", "red");
+        //appendWelcomeMsg("orstando");
 
-        appendRoom("img/rooms/general.png", "general", 1);
-        appendRoom("img/rooms/testing channel.png", "testing channel", 999999999)
+        //appendRoom("img/rooms/general.png", "general", 1);
+        //appendRoom("img/rooms/testing channel.png", "testing channel", 999999999)
     </script>
 </body>
