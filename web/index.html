@@ -729,7 +729,6 @@
 
       token = ""
       function handleToken(tokenarg) {
-        console.log(tokenarg)
         if (tokenarg) {
             token = tokenarg;
             toStore = JSON.stringify([token, (Date.now() + EXPIRY_DATE_MS)]); // has expiry date

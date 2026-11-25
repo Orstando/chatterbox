@@ -602,7 +602,7 @@ but a lot of this is copied from the web client
         </div>
         <div class="send-msg">
             <input class="textbox msg-entry" id="msg-textbox" placeholder="Message">
-            <button class="btn btn-primary send-btn" onclick="sendMessage()">Send</button>
+            <button class="btn btn-primary send-btn" onclick="sendMessage();">Send</button>
         </div>
     </div>
     
@@ -630,7 +630,7 @@ but a lot of this is copied from the web client
                 <span class="slider round"></span>
             </label>
             <span class="roboto-font">Dark Mode</span>
-        </div>
+        </div><br>
         <div class="option-switch">
             <label class="switch">
                 <input type="checkbox" onclick="devtoolsOption(this.checked);">
@@ -638,6 +638,11 @@ but a lot of this is copied from the web client
             </label>
             <span class="roboto-font">Devtools</span>
         </div>
+    </div>
+
+    <!-- ill improve this later-->
+    <div id="page-loading" class="hidden">
+        Loading...
     </div>
 
     <script src="connection.js"></script>
@@ -656,6 +661,7 @@ but a lot of this is copied from the web client
         client.onMessage = async function(data) {
             console.log("recieved", data)
             if (data.room == currentRoom[0]) {
+                data.author.pfp = "img/pfp.png"
                 appendMsg(data.author.pfp, data.author.name, data.content, (await getPlatformImage(data.platform)), data.image);
             };
         }
@@ -718,7 +724,7 @@ but a lot of this is copied from the web client
                     return;
             }
             handleToken(data.token);
-            toggleNav("all"); // enable nav
+            setNavShown(true) // show nav
             getRooms();
             enterRoom("general", "img/rooms/general.png")
             gotoPage("chat");
@@ -932,20 +938,22 @@ but a lot of this is copied from the web client
             onlineCountDiv.innerText = onlineCount.toString();
             roomDiv.appendChild(onlineCountDiv);
             roomDiv.addEventListener("click", function(event) { // do stuff on room click
-                enterRoom(this, name, icon);
+                enterRoom(name, icon);
             });
             document.getElementsByClassName("rooms")[0].appendChild(roomDiv);
+            return roomDiv;
         }
-        var selectedRoomDiv = null;
+
         var currentRoom = null;
-        function enterRoom(roomDiv, name, icon) {
+        var roomDivs = {}
+        function enterRoom(name, icon) {
+            const roomDiv = roomDivs[name]
             setRoomStatus(name, icon);
             currentRoom = [name, icon];
             roomDiv.classList.add("room-selected")
-            if (selectedRoomDiv) {
-                selectedRoomDiv.classList.remove("room-selected")
+            if (currentRoom) {
+                roomDivs[currentRoom[0]].classList.remove("room-selected")
             }
-            selectedRoomDiv = roomDiv
         }
 
         function showInfo(type) {
@@ -970,12 +978,91 @@ but a lot of this is copied from the web client
             localStorage.setItem("active-eruda", state.toString())
         }
 
+        token = null
+        function handleToken(tokenArg) {
+            console.log(tokenArg)
+            if (tokenArg) {
+                token = tokenArg;
+                toStore = JSON.stringify([token, (Date.now() + EXPIRY_DATE_MS)]); // has expiry date
+                localStorage.setItem("authToken", toStore);
+            } else {
+                returned = JSON.parse(localStorage.getItem("authToken"));
+                if (returned) { // check if exists
+                    returnedToken = returned[0];
+                    returnedExpiryDate = returned[1];
+                    if (returnedExpiryDate > Date.now()) { // check if expired
+                        token = returnedToken;
+                        return token;
+                    } else {
+                        return null;
+                    }
+                } else {
+                    return null;
+                }
+            }
+        }
+        async function getRooms() {
+            data = await client.rooms(token)
+            await Promise.all(data.map(async (item) => {
+                online = await client.online(token, item[0]);
+                const roomDiv = appendRoom("img/rooms/"+item+".png", item, online)
+                console.log(roomDiv)
+                roomDivs[item] = roomDiv
+                console.log(roomDivs)
+            }));
+            return data;
+        }
+        async function getHistory() {
+            messages = await client.history(token, currentRoom[0]);
+            for (const message of messages) {
+                appendMsg(message.author.pfp, message.author.name, message.content, (await getPlatformImage(message.platform)), message.image);
+            }
+        }
+
+        async function sendMessage() {
+            message = document.getElementById("msg-textbox").value;
+            console.log("Sending message:", message);
+            data = await client.send(token, message, currentRoom[0], "Mobile")
+            document.getElementById("msg-textbox").value = ""; // clear textbox
+        }
+        
+        // https://stackoverflow.com/a/18837818
+        async function doesImgExist(imageSrc) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = imageSrc;
+            });
+        }
+        async function getPlatformImage(platform) {
+            return (await doesImgExist("img/plt/"+platform+".png") ? "img/plt/"+platform+".png" : "img/plt/Unknown.png")
+        }
+        
+        async function main() {
+            gotoPage("loading");
+            lastPages.pop();
+            console.log(handleToken())
+            if (!handleToken()) { // check if signed in
+                document.body.classList.add("modalbg")
+                gotoPage("main");
+                setNavShown(false);
+            }  else {
+                const rooms = await getRooms();
+                console.log(rooms)
+                const firstRoom = rooms[0];
+                console.log(firstRoom)
+                enterRoom(firstRoom, "img/rooms/"+firstRoom+".png");
+                navBtn("chat");
+            }
+        }
+        main()
         //setRoomStatus("general", "img/rooms/general.png");
-        document.body.classList.add("modalbg")
-        setNavShown(false)
-        gotoPage("main");
+        //document.body.classList.add("modalbg")
+        //setNavShown(false)
+        //gotoPage("main");
         //navBtn("chat");
-        lastPages.pop();
+        //lastPages.pop();
         //for (var i = 1; i < 15; i++) {
         //    appendMsg("img/pfp.png", "testuser", "test msg", "img/plt/Web.png", "img/share-logo.png")
         //}
