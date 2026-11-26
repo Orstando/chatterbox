@@ -7,7 +7,7 @@ but a lot of this is copied from the web client
 <script>
     (function () {
         var src = 'eruda.js';
-        if (!/eruda=true/.test(window.location) && localStorage.getItem('active-eruda') != 'true') return;
+        if (!/eruda=true/.test(window.location) && JSON.parse(localStorage.getItem('options')).devtools != true) return;
         document.write('<scr' + 'ipt src="' + src + '"></scr' + 'ipt>');
         document.write('<scr' + 'ipt>eruda.init();eruda.scale(3);</scr' + 'ipt>');
     })();
@@ -502,6 +502,10 @@ but a lot of this is copied from the web client
         font-size: 40px;
     }
 
+    #options-needsRestart {
+        font-size: 25px;
+    }
+
     /* extra modal styling */
     .modal-header {
         font-size: 50px;
@@ -516,6 +520,10 @@ but a lot of this is copied from the web client
     .modal-textbox {
         font-size: 30px;
         padding: 20px;
+    }
+
+    #page-loading {
+        font-size: 30px;
     }
 
     .hidden { /* should always stay at the bottom here i think */
@@ -624,24 +632,26 @@ but a lot of this is copied from the web client
     
     <!-- Options/settings -->
     <div id="page-options" class="hidden">
-        <div class="option-switch">
+        <div id="option-darkmode" class="option-switch">
             <label class="switch">
-                <input type="checkbox">
+                <input type="checkbox" onclick="setOption('darkmode', this.checked);">
                 <span class="slider round"></span>
             </label>
             <span class="roboto-font">Dark Mode</span>
         </div><br>
-        <div class="option-switch">
+        <div id="option-devtools" class="option-switch">
             <label class="switch">
-                <input type="checkbox" onclick="devtoolsOption(this.checked);">
+                <input type="checkbox" onclick="setOption('devtools', this.checked);">
                 <span class="slider round"></span>
             </label>
             <span class="roboto-font">Devtools</span>
         </div>
+        <div id="options-needsRestart" class="hidden roboto-font">
+            <br>Success! Please reload to apply changes.
+        </div>
     </div>
 
-    <!-- ill improve this later-->
-    <div id="page-loading" class="hidden">
+    <div id="page-loading" class="hidden roboto-font">
         Loading...
     </div>
 
@@ -725,8 +735,9 @@ but a lot of this is copied from the web client
             }
             handleToken(data.token);
             setNavShown(true) // show nav
-            getRooms();
-            enterRoom("general", "img/rooms/general.png")
+            await getRooms();
+            enterRoom("general", "img/rooms/general.png");
+            document.body.classList.remove("modalbg")
             gotoPage("chat");
         }
         async function signup() {
@@ -753,9 +764,10 @@ but a lot of this is copied from the web client
                     showErr("signup", "Error: Username too long. Limit is "+data.limit+" characters.")
             }
             handleToken(data.token);
-            toggleNav("all"); // enable nav
-            getRooms();
-            enterRoom("general", "img/rooms/general.png")
+            setNavShown(true); // show nav
+            await getRooms();
+            enterRoom("general", "img/rooms/general.png");
+            document.body.classList.remove("modalbg")
             gotoPage("chat");
         }
 
@@ -864,6 +876,8 @@ but a lot of this is copied from the web client
         function appendAndScroll(element) {
             const msgContainer = document.getElementById("messages");
             msgContainer.appendChild(element);
+            // remove oldest hackyFixDiv
+            // to test this: for(i=0;i<=100;i++){appendMsg("img/pfp.png","user","message","img/plt/Unknown.png")}
             if (msgContainer.firstChild.innerHTML && msgContainer.firstChild.innerHTML.startsWith("<br>")) {
                 msgContainer.firstChild.firstChild.remove();
             }
@@ -891,7 +905,7 @@ but a lot of this is copied from the web client
                 document.getElementById("navlink-"+btn).classList.add("navbar-selected")
                 const elToDeselect = document.getElementById("navlink-"+currentlySelectedNav)
                 if (elToDeselect) {
-                    elToDeselect.classList.remove("navbar-selected")
+                    elToDeselect.classList.remove("navbar-selected");
                 }
                 currentlySelectedNav = btn
                 if (btn == "chat") {
@@ -947,13 +961,16 @@ but a lot of this is copied from the web client
         var currentRoom = null;
         var roomDivs = {}
         function enterRoom(name, icon) {
+            console.log(roomDivs)
             const roomDiv = roomDivs[name]
             setRoomStatus(name, icon);
             currentRoom = [name, icon];
-            roomDiv.classList.add("room-selected")
+            roomDiv.classList.add("room-selected");
             if (currentRoom) {
-                roomDivs[currentRoom[0]].classList.remove("room-selected")
+                roomDivs[currentRoom[0]].classList.remove("room-selected");
             }
+            appendHackyFixDivs();
+            getHistory();
         }
 
         function showInfo(type) {
@@ -972,10 +989,6 @@ but a lot of this is copied from the web client
         }
         function infoBack() {
             gotoPage("info")
-        }
-
-        function devtoolsOption(state) {
-            localStorage.setItem("active-eruda", state.toString())
         }
 
         token = null
@@ -1005,9 +1018,9 @@ but a lot of this is copied from the web client
             data = await client.rooms(token)
             await Promise.all(data.map(async (item) => {
                 online = await client.online(token, item[0]);
-                const roomDiv = appendRoom("img/rooms/"+item+".png", item, online)
+                const roomDiv = appendRoom("img/rooms/"+item+".png", item, online);
                 console.log(roomDiv)
-                roomDivs[item] = roomDiv
+                roomDivs[item] = roomDiv;
                 console.log(roomDivs)
             }));
             return data;
@@ -1039,6 +1052,44 @@ but a lot of this is copied from the web client
             return (await doesImgExist("img/plt/"+platform+".png") ? "img/plt/"+platform+".png" : "img/plt/Unknown.png")
         }
         
+        function appendHackyFixDivs() {
+            // hacky fix to keep messages at bottom on start
+            // yes theres the same problem on the mobile client
+            // no i dont feel like fixing it right now
+            document.getElementById("messages").replaceChildren();
+            const hackyFixDivs = new Array(100).fill(document.createElement("div")); // ah yes, "hackyFixDivs"
+            hackyFixDivs.forEach(hackyFixDiv => {
+                hackyFixDiv.classList.add("message");
+                hackyFixBr = document.createElement("br");
+                hackyFixDiv.appendChild(hackyFixBr);
+                document.getElementById("messages").appendChild(hackyFixDiv);
+            });
+        }
+
+        function getOptions() {
+            return JSON.parse(localStorage.getItem("options")) || {}
+        }
+        optionsNeedRestart = ["devtools"]
+        function setOption(name, state) {
+            var options = getOptions();
+            options[name] = state;
+            localStorage.setItem("options", JSON.stringify(options));
+            if (optionsNeedRestart.includes(name)) {
+                document.getElementById("options-needsRestart").classList.remove("hidden");
+            } else {
+                document.getElementById("options-needsRestart").classList.add("hidden");
+            }
+        }
+        function firstGetOptionsState() {
+            const options = getOptions();
+            for (const [name, state] of Object.entries(options)) {
+                const optionDiv = document.getElementById("option-"+name);
+                if (typeof(state) == "boolean") {
+                    optionDiv.querySelector("label input").checked = state;
+                }
+            }
+        }
+
         async function main() {
             gotoPage("loading");
             lastPages.pop();
@@ -1054,6 +1105,7 @@ but a lot of this is copied from the web client
                 console.log(firstRoom)
                 enterRoom(firstRoom, "img/rooms/"+firstRoom+".png");
                 navBtn("chat");
+                firstGetOptionsState();
             }
         }
         main()

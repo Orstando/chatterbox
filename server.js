@@ -136,7 +136,7 @@ function getServerUrl() {
 app.use('/web', express.static('web'));
 app.use('/mobile', express.static('mobile'));
 app.get('/', (req, res) => {
-  if (mobile(req)) {
+  if (mobile({ua:req})) {
     return res.redirect("/mobile");
   } else {
     return res.redirect("/web")

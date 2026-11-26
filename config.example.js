@@ -1,6 +1,8 @@
 config = {
     "token_secret": "replace with a randomly generated string", // JWT secret key
     "session_secret": "replace with a (different) randomly generated string", // Secret key for admin panel cookies
+    "host": "127.0.0.1", // host in urls sent to client (pfps, etc)
+    "is_secure": false, // http or https
     "port": 3035,
     "rooms": [
         "general",
